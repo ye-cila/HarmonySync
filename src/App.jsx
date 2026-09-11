@@ -1,11 +1,18 @@
 import { useState, useEffect } from 'react';
 
+import {
+  getUserProfile,
+  getTopTracks,
+  getTopArtists,
+} from './services/spotifyService';
+
 function App() {
   const [accessToken, setAccessToken] = useState('');
   const [userProfile, setUserProfile] = useState(null);
   const [topTracks, setTopTracks] = useState([]);
+  const [topArtists, setTopArtists] = useState([]);
   const [loading, setLoading] = useState(false);
-
+  
   useEffect(() => {
     // Receive Token from URL after Spotify redirect to frontend
     const query = new URLSearchParams(window.location.search);
@@ -33,32 +40,16 @@ useEffect(() => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch user data
-      const profileRes = await fetch('https://api.spotify.com/v1/me', {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
+      const [profileData, tracksData, artistsData] = await Promise.all([
+        getUserProfile(accessToken),
+        getTopTracks(accessToken),
+        getTopArtists(accessToken),
+      ]);
 
-      // Convert data to JSON object
-      if (profileRes.ok) {
-        const profileData = await profileRes.json();
-        setUserProfile(profileData);
-      } else {
-        const errData = await profileRes.json();
-        console.error('Error Profile API:', profileRes.status, errData);
-      }
+      setUserProfile(profileData);
+      setTopTracks(tracksData.items);
+      setTopArtists(artistsData.items);
 
-      // Fetch top 5 tracks
-      const tracksRes = await fetch('https://api.spotify.com/v1/me/top/tracks?limit=5', {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-
-      if (tracksRes.ok) {
-        const tracksData = await tracksRes.json();
-        setTopTracks(tracksData.items);
-      } else {
-        const errData = await tracksRes.json();
-        console.error('Error Top Tracks API:', tracksRes.status, errData);
-      }
     } catch (error) {
       console.error('Spotify API Error:', error);
     } finally {
@@ -73,12 +64,16 @@ useEffect(() => {
     setAccessToken('');
     setUserProfile(null);
     setTopTracks([]);
+    setTopArtists([]);
+
     localStorage.removeItem('spotify_token');
   }
+
   const handleLogin = () => {
     // Redirect to /login in Backend
     window.location.href = 'http://127.0.0.1:8888/login';
   };
+
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
@@ -124,16 +119,25 @@ useEffect(() => {
           {/* Top Tracks */}
           <div>
             <h3 className="text-lg font-semibold mb-4 text-green-300">🎵 Top 5 Recent Tracks </h3>
+
             {loading ? (
               <p className="text-slate-400 text-center py-4">Waiting for Spotify...</p>
             ) : topTracks.length > 0 ? (
               <ul className="space-y-3">
                 {topTracks.map((track, index) => (
-                  <li key={track.id} className="flex items-center justify-between bg-slate-700/50 p-3 rounded-xl hover:bg-slate-700 transition">
+                  <li 
+                    key={track.id} 
+                    className="flex items-center justify-between bg-slate-700/50 p-3 rounded-xl hover:bg-slate-700 transition">
                     <div className="flex items-center space-x-3">
-                      <span className="text-slate-400 font-bold w-4">{index + 1}</span>
+                      <span className="text-slate-400 font-bold w-4">
+                        {index + 1}
+                      </span>
+
                       {track.album?.images?.[0]?.url && (
-                        <img src={track.album.images[0].url} alt="" className="w-10 h-10 rounded object-cover" />
+                        <img 
+                          src={track.album.images[0].url} 
+                          alt="" 
+                          className="w-10 h-10 rounded object-cover" />
                       )}
                       <div>
                         <p className="font-semibold text-sm line-clamp-1">{track.name}</p>
@@ -148,6 +152,49 @@ useEffect(() => {
               </ul>
             ) : (
               <p className="text-slate-400 text-center py-4">No Track Founded. Lose Your Vibe?</p>
+            )}
+          </div>
+
+          {/* Top Artists */}
+          <div className="mt-8">
+            <h3 className="text-lg font-semibold mb-4 text-green-300"> 🎤 Top 5 Artists </h3>
+
+            {loading ? (
+              <p className="text-slate-400 text-center py-4"> Waiting for Spotify... </p>
+            ) : topArtists.length > 0 ? (
+              <ul className="space-y-3">
+                {topArtists.map((artist, index) => (
+                  <li
+                    key={artist.id}
+                    className="flex items-center bg-slate-700/50 p-3 rounded-xl hover:bg-slate-700 transition">
+                    <span className="text-slate-400 font-bold w-6">
+                      {index + 1}
+                    </span>
+
+                    {artist.images?.[0]?.url && (
+                      <img
+                        src={artist.images[0].url}
+                        alt=""
+                        className="w-10 h-10 rounded-full object-cover mr-3"
+                      />
+                    )}
+
+                    <div>
+                      <p className="font-semibold text-sm">
+                        {artist.name}
+                      </p>
+
+                      <p className="text-xs text-slate-400">
+                        {artist.genres?.slice(0, 3).join(', ') || 'No genre data'}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-slate-400 text-center py-4">
+                No artists found.
+              </p>
             )}
           </div>
         </div>
