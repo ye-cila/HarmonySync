@@ -2,19 +2,73 @@ import { useState, useEffect } from 'react';
 
 function App() {
   const [accessToken, setAccessToken] = useState('');
+  const [userProfile, setUserProfile] = useState(null);
+  const [topTracks, setTopTracks] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     // Receive Token from URL after Spotify redirect to frontend
     const query = new URLSearchParams(window.location.search);
     const token = query.get('access_token');
 
+    // Access token and save to localStorage in case there is no access_token on the URL
     if (token) {
       setAccessToken(token);
+      // Temporarily save access token to localStorage
+      localStorage.setItem('spotify_token', token);
+      
       // Format URL
       window.history.pushState({}, null, '/');
+    } else {
+      // Access to token saved before
+      const savedToken = localStorage.getItem('spotify_token');
+      if (savedToken) setAccessToken(savedToken);
     }
   }, []);
 
+// Call Spotify API when having token
+useEffect(() => {
+  if (!accessToken) return;
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Fetch user data
+      const profileRes = await fetch('https://api.spotify.com/v1/me', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      // Convert data to JSON object
+      if (profileRes.ok) {
+        const profileData = await profileRes.json();
+        setUserProfile(profileData);
+      }
+
+      // Fetch top 5 tracks
+      const tracksRes = await fetch('https://api.spotify.com/v1/me/top/tracks?limit=5', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (tracksRes.ok) {
+        const tracksData = await tracksRes.json();
+        setTopTracks(tracksData.items);
+      }
+    } catch (error) {
+      console.error('Spotify API Error:', error);
+    } finally {
+      setLoading(false);
+    }   
+  };
+
+  fetchData();
+}, [accessToken]); // Run again everytime the value of token is changed
+
+  const handleLogout = () => {
+    setAccessToken('');
+    setUserProfile(null);
+    setTopTracks([]);
+    localStorage.removeItem('spotify_token');
+  }
   const handleLogin = () => {
     // Redirect to /login in Backend
     window.location.href = 'http://127.0.0.1:8888/login';
@@ -35,10 +89,60 @@ function App() {
           </button>
         </div>
       ) : (
-        <div className="text-center">
-          <p className="text-xl text-green-400 font-semibold mb-2">🎉 Spotify connected!</p>
-          <div className="bg-gray-900 p-4 rounded-lg max-w-md break-all text-xs text-gray-300 border border-gray-800">
-            <strong>Access Token:</strong> {accessToken}
+        <div className="w-full max-w-2xl bg-slate-800 p-6 rounded-2xl shadow-xl">
+          {/* User Profile */}
+          {userProfile && (
+            <div className="flex items-center justify-between border-b border-slate-700 pb-4 mb-6">
+              <div className="flex items-center space-x-4">
+                {userProfile.images?.[0]?.url && (
+                  <img
+                    src={userProfile.images[0].url}
+                    alt="Avatar"
+                    className="w-14 h-14 rounded-full border-2 border-green-400 object-cover"
+                  />
+                )}
+                <div>
+                  <h2 className="text-xl font-bold">{userProfile.display_name}</h2>
+                  <p className="text-sm text-slate-400">{userProfile.email} • {userProfile.product} plan</p>
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white text-sm px-4 py-2 rounded-lg transition"
+              >
+                Log out
+              </button>
+            </div>
+          )}
+
+          {/* Top Tracks */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4 text-green-300">🎵 Top 5 Recent Tracks </h3>
+            {loading ? (
+              <p className="text-slate-400 text-center py-4">Waiting for Spotify...</p>
+            ) : topTracks.length > 0 ? (
+              <ul className="space-y-3">
+                {topTracks.map((track, index) => (
+                  <li key={track.id} className="flex items-center justify-between bg-slate-700/50 p-3 rounded-xl hover:bg-slate-700 transition">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-slate-400 font-bold w-4">{index + 1}</span>
+                      {track.album?.images?.[0]?.url && (
+                        <img src={track.album.images[0].url} alt="" className="w-10 h-10 rounded object-cover" />
+                      )}
+                      <div>
+                        <p className="font-semibold text-sm line-clamp-1">{track.name}</p>
+                        <p className="text-xs text-slate-400">{track.artists.map(a => a.name).join(', ')}</p>
+                      </div>
+                    </div>
+                    <span className="text-xs text-slate-400">
+                      {Math.floor(track.duration_ms / 60000)}:{String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0')}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-slate-400 text-center py-4">No Track Founded. Lose Your Vibe?</p>
+            )}
           </div>
         </div>
       )}
