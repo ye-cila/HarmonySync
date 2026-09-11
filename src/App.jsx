@@ -35,23 +35,29 @@ useEffect(() => {
     try {
       // Fetch user data
       const profileRes = await fetch('https://api.spotify.com/v1/me', {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${accessToken}` }
       });
 
       // Convert data to JSON object
       if (profileRes.ok) {
         const profileData = await profileRes.json();
         setUserProfile(profileData);
+      } else {
+        const errData = await profileRes.json();
+        console.error('Error Profile API:', profileRes.status, errData);
       }
 
       // Fetch top 5 tracks
       const tracksRes = await fetch('https://api.spotify.com/v1/me/top/tracks?limit=5', {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${accessToken}` }
       });
 
       if (tracksRes.ok) {
         const tracksData = await tracksRes.json();
         setTopTracks(tracksData.items);
+      } else {
+        const errData = await tracksRes.json();
+        console.error('Error Top Tracks API:', tracksRes.status, errData);
       }
     } catch (error) {
       console.error('Spotify API Error:', error);
