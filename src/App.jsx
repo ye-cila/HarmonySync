@@ -4,9 +4,15 @@ import { useSpotifyTaste } from './hooks/useSpotifyTaste';
 
 import { findSharedArtists } from './utils/tasteProfile';
 
+import Room from './components/Room';
+
+import RoomLobby from './components/RoomLobby';
+
 function App() {
   const [accessToken, setAccessToken] = useState('');
   const [timeRange, setTimeRange] = useState('medium_term');
+  const [roomCode, setRoomCode] = useState('');
+  const [roomUsers, setRoomUsers] = useState([]);
   
   const {
     profile: userProfile,
@@ -46,7 +52,6 @@ function App() {
     window.location.href = 'http://127.0.0.1:8888/login';
   };
 
-
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
       <h1 className="text-4xl font-bold mb-6 text-green-500">HarmonySync</h1>
@@ -63,6 +68,19 @@ function App() {
         </div>
       ) : (
         <div className="w-full max-w-2xl bg-slate-800 p-6 rounded-2xl shadow-xl">
+          {roomCode ? (
+            <RoomLobby
+              roomCode={roomCode}
+              users={roomUsers}
+            />
+          ) : (
+            <Room
+              onRoomJoined={(roomCode, users) => {
+                setRoomCode(roomCode);
+                setRoomUsers(users);
+              }}
+            />
+          )}
           {/* User Profile */}
           {userProfile && (
             <div className="flex items-center justify-between border-b border-slate-700 pb-4 mb-6">
