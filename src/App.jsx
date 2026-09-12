@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 
 import { useSpotifyTaste } from './hooks/useSpotifyTaste';
 
+import { findSharedArtists } from './utils/tasteProfile';
+
 function App() {
   const [accessToken, setAccessToken] = useState('');
   const [timeRange, setTimeRange] = useState('medium_term');

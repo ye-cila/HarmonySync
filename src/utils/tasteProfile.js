@@ -7,3 +7,12 @@ export const findSharedArtists = (artistsA, artistsB) => {
     artistNamesA.has(artist.name.toLowerCase())
   );
 };
+
+export const createBlend = (artistsA, artistsB) => {
+  const sharedArtists = findSharedArtists(artistsA, artistsB);
+
+  return {
+    sharedArtists,
+    sharedCount: sharedArtists.length,
+  };
+};
