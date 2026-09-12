@@ -17,6 +17,7 @@ const Room = ({ onRoomJoined }) => {
       const data = await response.json();
 
       onRoomJoined(data.roomCode, data.users);
+
     } catch (error) {
       console.error(error);
       setError('Could not create room');
@@ -41,6 +42,7 @@ const Room = ({ onRoomJoined }) => {
       }
 
       onRoomJoined(data.roomCode, data.users);
+
     } catch (error) {
       console.error(error);
       setError(error.message);

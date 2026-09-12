@@ -8,11 +8,14 @@ import Room from './components/Room';
 
 import RoomLobby from './components/RoomLobby';
 
+import { io } from 'socket.io-client';
+
 function App() {
   const [accessToken, setAccessToken] = useState('');
   const [timeRange, setTimeRange] = useState('medium_term');
   const [roomCode, setRoomCode] = useState('');
   const [roomUsers, setRoomUsers] = useState([]);
+  const [socket, setSocket] = useState(null);
   
   const {
     profile: userProfile,
@@ -21,6 +24,20 @@ function App() {
     loading,
     error,
   } = useSpotifyTaste(accessToken, timeRange);
+
+  useEffect(() => {
+    const newSocket = io('http://127.0.0.1:8888');
+
+    newSocket.on('room-users', (users) => {
+      setRoomUsers(users);
+    });
+
+    setSocket(newSocket);
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     // Receive Token from URL after Spotify redirect to frontend
@@ -78,6 +95,8 @@ function App() {
               onRoomJoined={(roomCode, users) => {
                 setRoomCode(roomCode);
                 setRoomUsers(users);
+
+                socket.emit('join-room', roomCode);
               }}
             />
           )}

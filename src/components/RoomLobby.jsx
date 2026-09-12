@@ -20,7 +20,7 @@ const RoomLobby = ({ roomCode, users }) => {
 
         {users.map((user) => (
             <p key={user.id} className="text-gray-300">
-            👤 Player {user.id.slice(0, 6)}
+            👤 Viber {user.id.slice(0, 6)}
             </p>
         ))}
         </div>
