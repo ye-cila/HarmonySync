@@ -1,18 +1,19 @@
 import { useState, useEffect } from 'react';
 
-import {
-  getUserProfile,
-  getTopTracks,
-  getTopArtists,
-} from './services/spotifyService';
+import { useSpotifyTaste } from './hooks/useSpotifyTaste';
 
 function App() {
   const [accessToken, setAccessToken] = useState('');
-  const [userProfile, setUserProfile] = useState(null);
-  const [topTracks, setTopTracks] = useState([]);
-  const [topArtists, setTopArtists] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [timeRange, setTimeRange] = useState('medium_term');
   
+  const {
+    profile: userProfile,
+    tracks: topTracks,
+    artists: topArtists,
+    loading,
+    error,
+  } = useSpotifyTaste(accessToken, timeRange);
+
   useEffect(() => {
     // Receive Token from URL after Spotify redirect to frontend
     const query = new URLSearchParams(window.location.search);
@@ -33,39 +34,8 @@ function App() {
     }
   }, []);
 
-// Call Spotify API when having token
-useEffect(() => {
-  if (!accessToken) return;
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [profileData, tracksData, artistsData] = await Promise.all([
-        getUserProfile(accessToken),
-        getTopTracks(accessToken),
-        getTopArtists(accessToken),
-      ]);
-
-      setUserProfile(profileData);
-      setTopTracks(tracksData.items);
-      setTopArtists(artistsData.items);
-
-    } catch (error) {
-      console.error('Spotify API Error:', error);
-    } finally {
-      setLoading(false);
-    }   
-  };
-
-  fetchData();
-}, [accessToken]); // Run again everytime the value of token is changed
-
   const handleLogout = () => {
     setAccessToken('');
-    setUserProfile(null);
-    setTopTracks([]);
-    setTopArtists([]);
-
     localStorage.removeItem('spotify_token');
   }
 
@@ -118,6 +88,26 @@ useEffect(() => {
 
           {/* Top Tracks */}
           <div>
+            <div className="flex gap-2 mb-4">
+              {[
+                { value: 'short_term', label: '4 Weeks' },
+                { value: 'medium_term', label: '6 Months' },
+                { value: 'long_term', label: '1 Year' },
+              ].map((range) => (
+                <button
+                  key={range.value}
+                  onClick={() => setTimeRange(range.value)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition ${
+                    timeRange === range.value
+                      ? 'bg-green-500 text-black'
+                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  }`}
+                >
+                  {range.label}
+                </button>
+              ))}
+            </div>
+
             <h3 className="text-lg font-semibold mb-4 text-green-300">🎵 Top 5 Recent Tracks </h3>
 
             {loading ? (
