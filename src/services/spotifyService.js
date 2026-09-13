@@ -43,3 +43,37 @@ export const getTopArtists = async (
     accessToken
   );
 };
+
+export const getArtistAlbums = async (
+  artistId,
+  accessToken,
+  limit = 3
+) => {
+  return spotifyFetch(
+    `/artists/${artistId}/albums?include_groups=album,single&limit=${limit}`,
+    accessToken
+  );
+};
+
+export const getAlbumTracks = async (
+  albumId,
+  accessToken,
+  limit = 20
+) => {
+  return spotifyFetch(
+    `/albums/${albumId}/tracks?limit=${limit}`,
+    accessToken
+  );
+}
+
+export const searchSpotify = async (
+  query,
+  accessToken,
+  type = 'track',
+  limit = 10
+) => {
+  return spotifyFetch(
+    `/search?q=${encodeURIComponent(query)}&type=${type}&limit=${limit}`,
+    accessToken
+  );
+};

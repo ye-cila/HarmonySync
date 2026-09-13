@@ -5,6 +5,7 @@ import { useSpotifyTaste } from './hooks/useSpotifyTaste';
 import { 
   createBlend,
   createHarmonyPlaylist,
+  createTasteProfile,
 } from './utils/tasteProfile';
 
 import Room from './components/Room';
@@ -12,6 +13,12 @@ import Room from './components/Room';
 import RoomLobby from './components/RoomLobby';
 
 import { io } from 'socket.io-client';
+
+import {
+  getArtistAlbums,
+  getAlbumTracks,
+  searchSpotify,
+} from './services/spotifyService';
 
 
 function App() {
@@ -22,6 +29,7 @@ function App() {
   const [socket, setSocket] = useState(null);
   const [userId, setUserId] = useState('');
   const [showRoom, setShowRoom] = useState(false);
+  const [candidateTracks, setCandidateTracks] = useState([]);
   
   const {
     profile: userProfile,
@@ -85,15 +93,123 @@ function App() {
       )
     : null;
 
+  const tasteProfileA =
+    roomUsers.length >= 1
+      ? createTasteProfile(
+          roomUsers[0].topTracks || [],
+          roomUsers[0].topArtists || []
+        )
+      : null;
+
+  const tasteProfileB =
+    roomUsers.length >= 2
+      ? createTasteProfile(
+          roomUsers[1].topTracks || [],
+          roomUsers[1].topArtists || []
+        )
+      : null;
+
   const harmonyPlaylist =
   roomUsers.length >= 2
     ? createHarmonyPlaylist(
         roomUsers[0].topTracks || [],
         roomUsers[1].topTracks || [],
         roomUsers[0].topArtists || [],
-        roomUsers[1].topArtists || []
+        roomUsers[1].topArtists || [],
+        candidateTracks
       )
     : [];
+
+  useEffect(() => {
+  if (!accessToken || roomUsers.length < 2) {
+    setCandidateTracks([]);
+    return;
+  }
+
+  const expandHarmony = async () => {
+    try {
+      const artistsA = roomUsers[0].topArtists || [];
+      const artistsB = roomUsers[1].topArtists || [];
+
+      // Combine both users' top artists
+      const allArtists = [...artistsA, ...artistsB];
+
+      // Remove duplicate artists
+      const uniqueArtists = [
+        ...new Map(
+          allArtists.map((artist) => [artist.id, artist])
+        ).values(),
+      ];
+
+      // Use the strongest artists as taste seeds
+      const seedArtists = uniqueArtists.slice(0, 5);
+
+      const candidateTracks = [];
+
+      // Search Spotify using each seed artist
+      for (const artist of seedArtists) {
+        const response = await searchSpotify(
+          `"${artist.name}"`,
+          accessToken,
+          'track',
+          10
+        );
+
+        if (response.tracks?.items) {
+          candidateTracks.push(...response.tracks.items);
+        }
+      }
+
+      // Also search combinations of artists from both users
+      const sharedSearches = [];
+
+      for (const artistA of artistsA.slice(0, 3)) {
+        for (const artistB of artistsB.slice(0, 3)) {
+          sharedSearches.push(
+            `"${artistA.name}" "${artistB.name}"`
+          );
+        }
+      }
+
+      for (const query of sharedSearches) {
+        const response = await searchSpotify(
+          query,
+          accessToken,
+          'track',
+          10
+        );
+
+        if (response.tracks?.items) {
+          candidateTracks.push(...response.tracks.items);
+        }
+      }
+
+      // Remove duplicate Spotify track IDs
+      const uniqueTracks = [
+        ...new Map(
+          candidateTracks.map((track) => [track.id, track])
+        ).values(),
+      ];
+
+      console.log(
+        'Harmony candidates:',
+        uniqueTracks.length
+      );
+
+      setCandidateTracks(uniqueTracks);
+
+    } catch (error) {
+      console.error(
+        'Harmony expansion error:',
+        error
+      );
+
+      setCandidateTracks([]);
+    }
+  };
+
+  expandHarmony();
+}, [accessToken, roomUsers]);
 
 
   return (

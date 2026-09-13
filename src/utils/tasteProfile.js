@@ -66,13 +66,26 @@ export const createBlend = (artistsA, artistsB) => {
   };
 };
 
+const normalizeSongName = (name) => {
+  return name
+    .toLowerCase()
+    .replace(/\s*\([^)]*\)/g, '')
+    .replace(/\s*\[[^\]]*\]/g, '')
+    .replace(
+      /\s*-\s*(remaster(ed)?|live|acoustic|radio edit|remix|version|mix).*$/i,
+      ''
+    )
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
 export const createHarmonyPlaylist = (
   tracksA,
   tracksB,
   artistsA,
-  artistsB
+  artistsB,
+  candidateTracks
 ) => {
-  // Create maps so we can quickly find each user's artist ranking
   const rankMapA = new Map();
   const rankMapB = new Map();
 
@@ -84,25 +97,46 @@ export const createHarmonyPlaylist = (
     rankMapB.set(artist.name.toLowerCase(), index + 1);
   });
 
-  // Keep track of songs each user has listened to
-  const tracksASet = new Set(tracksA.map((track) => track.id));
-  const tracksBSet = new Set(tracksB.map((track) => track.id));
+  // Songs the users have already seen
+  const existingTrackIds = new Set([
+    ...tracksA.map((track) => track.id),
+    ...tracksB.map((track) => track.id),
+  ]);
 
-  // Combine both users' tracks
-  const allTracks = [...tracksA, ...tracksB];
-
-  // Use a Map to remove duplicate tracks
   const trackMap = new Map();
+  const seenSongs = new Set();
 
-  allTracks.forEach((track) => {
-    const artistName = track.artists[0].name.toLowerCase();
+  candidateTracks.forEach((track) => {
+    // Don't recommend songs already in either user's Top 20
+    if (existingTrackIds.has(track.id)) {
+      return;
+    }
+
+    const songKey =
+      track.external_ids?.isrc ||
+      `${normalizeSongName(track.name)}-${track.artists[0]?.name
+        ?.toLowerCase()
+        .trim()}`;
+
+    if (seenSongs.has(songKey)) {
+      return;
+    }
+
+    seenSongs.add(songKey);
+
+    const artistName =
+      track.artists?.[0]?.name?.toLowerCase();
+
+    if (!artistName) {
+      return;
+    }
 
     const rankA = rankMapA.get(artistName);
     const rankB = rankMapB.get(artistName);
 
     let score = 0;
 
-    // Higher-ranked artists get more points
+    // Stronger points for artists both users rank highly
     if (rankA) {
       score += artistsA.length - rankA + 1;
     }
@@ -111,22 +145,84 @@ export const createHarmonyPlaylist = (
       score += artistsB.length - rankB + 1;
     }
 
-    // Bonus if BOTH users have listened to this exact song
-    if (tracksASet.has(track.id) && tracksBSet.has(track.id)) {
-      score += 5;
+    // Extra bonus if the artist is highly ranked by BOTH users
+    if (rankA && rankB) {
+      score += 10;
     }
 
-    trackMap.set(track.id, {
+    trackMap.set(songKey, {
       track,
       score,
     });
   });
 
-  // Convert Map to array and sort highest score first
   return [...trackMap.values()]
     .sort((a, b) => b.score - a.score)
     .map((item) => ({
       ...item.track,
       harmonyScore: item.score,
     }));
+};
+
+export const createTasteProfile = (tracks, artists) => {
+  if (tracks.length === 0) {
+    return {
+      averageDuration: 0,
+      averagePopularity: 0,
+      averageReleaseYear: 0,
+      topArtists: [],
+    };
+  }
+
+  // Average song duration
+  const totalDuration = tracks.reduce(
+    (sum, track) => sum + track.duration_ms,
+    0
+  );
+
+  const averageDuration = Math.round(
+    totalDuration / tracks.length
+  );
+
+  // Average Spotify popularity
+  const totalPopularity = tracks.reduce(
+    (sum, track) => sum + (track.popularity || 0),
+    0
+  );
+
+  const averagePopularity = Math.round(
+    totalPopularity / tracks.length
+  );
+
+  // Average release year
+  const releaseYears = tracks
+    .map((track) => {
+      const date = track.album?.release_date;
+
+      if (!date) return null;
+
+      return parseInt(date.substring(0, 4));
+    })
+    .filter((year) => !isNaN(year));
+
+  const averageReleaseYear =
+    releaseYears.length > 0
+      ? Math.round(
+          releaseYears.reduce((sum, year) => sum + year, 0) /
+            releaseYears.length
+        )
+      : 0;
+
+  // Keep artist ranking information
+  const topArtists = artists.map((artist, index) => ({
+    name: artist.name,
+    rank: index + 1,
+  }));
+
+  return {
+    averageDuration,
+    averagePopularity,
+    averageReleaseYear,
+    topArtists,
+  };
 };
