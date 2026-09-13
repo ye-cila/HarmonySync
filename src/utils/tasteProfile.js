@@ -80,34 +80,31 @@ const normalizeSongName = (name) => {
 };
 
 export const createHarmonyPlaylist = (
-  tracksA,
-  tracksB,
-  artistsA,
-  artistsB,
+  roomUsers,
   candidateTracks
 ) => {
-  const rankMapA = new Map();
-  const rankMapB = new Map();
+  const rankMaps = roomUsers.map((user) => {
+    const rankMap = new Map();
 
-  artistsA.forEach((artist, index) => {
-    rankMapA.set(artist.name.toLowerCase(), index + 1);
+    (user.topArtists || []).forEach((artist, index) => {
+      rankMap.set(artist.name.toLowerCase(), index + 1);
+    });
+
+    return rankMap;
   });
 
-  artistsB.forEach((artist, index) => {
-    rankMapB.set(artist.name.toLowerCase(), index + 1);
-  });
+  const existingTrackIds = new Set();
 
-  // Songs the users have already seen
-  const existingTrackIds = new Set([
-    ...tracksA.map((track) => track.id),
-    ...tracksB.map((track) => track.id),
-  ]);
+  roomUsers.forEach((user) => {
+    (user.topTracks || []).forEach((track) => {
+      existingTrackIds.add(track.id);
+    });
+  });
 
   const trackMap = new Map();
   const seenSongs = new Set();
 
   candidateTracks.forEach((track) => {
-    // Don't recommend songs already in either user's Top 20
     if (existingTrackIds.has(track.id)) {
       return;
     }
@@ -131,23 +128,29 @@ export const createHarmonyPlaylist = (
       return;
     }
 
-    const rankA = rankMapA.get(artistName);
-    const rankB = rankMapB.get(artistName);
-
     let score = 0;
+    let usersWhoKnowArtist = 0;
 
-    // Stronger points for artists both users rank highly
-    if (rankA) {
-      score += artistsA.length - rankA + 1;
+    rankMaps.forEach((rankMap, index) => {
+      const rank = rankMap.get(artistName);
+
+      if (rank) {
+        const artistCount =
+          (roomUsers[index].topArtists || []).length;
+
+        score += artistCount - rank + 1;
+        usersWhoKnowArtist++;
+      }
+    });
+
+    // Bonus when multiple people know the artist
+    if (usersWhoKnowArtist >= 2) {
+      score += usersWhoKnowArtist * 5;
     }
 
-    if (rankB) {
-      score += artistsB.length - rankB + 1;
-    }
-
-    // Extra bonus if the artist is highly ranked by BOTH users
-    if (rankA && rankB) {
-      score += 10;
+    // Small discovery bonus
+    if (usersWhoKnowArtist === 0) {
+      score += 1;
     }
 
     trackMap.set(songKey, {

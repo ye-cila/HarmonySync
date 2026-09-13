@@ -112,10 +112,7 @@ function App() {
   const harmonyPlaylist =
   roomUsers.length >= 2
     ? createHarmonyPlaylist(
-        roomUsers[0].topTracks || [],
-        roomUsers[1].topTracks || [],
-        roomUsers[0].topArtists || [],
-        roomUsers[1].topArtists || [],
+        roomUsers,
         candidateTracks
       )
     : [];
@@ -128,11 +125,9 @@ function App() {
 
   const expandHarmony = async () => {
     try {
-      const artistsA = roomUsers[0].topArtists || [];
-      const artistsB = roomUsers[1].topArtists || [];
-
-      // Combine both users' top artists
-      const allArtists = [...artistsA, ...artistsB];
+      const allArtists = roomUsers.flatMap(
+        (user) => user.topArtists || []
+      );
 
       // Remove duplicate artists
       const uniqueArtists = [
@@ -142,7 +137,7 @@ function App() {
       ];
 
       // Use the strongest artists as taste seeds
-      const seedArtists = uniqueArtists.slice(0, 5);
+      const seedArtists = uniqueArtists.slice(0, 10);
 
       const candidateTracks = [];
 
@@ -163,11 +158,18 @@ function App() {
       // Also search combinations of artists from both users
       const sharedSearches = [];
 
-      for (const artistA of artistsA.slice(0, 3)) {
-        for (const artistB of artistsB.slice(0, 3)) {
-          sharedSearches.push(
-            `"${artistA.name}" "${artistB.name}"`
-          );
+      for (let i = 0; i < roomUsers.length; i++) {
+        for (let j = i + 1; j < roomUsers.length; j++) {
+          const artistsA = roomUsers[i].topArtists || [];
+          const artistsB = roomUsers[j].topArtists || [];
+
+          for (const artistA of artistsA.slice(0, 5)) {
+            for (const artistB of artistsB.slice(0, 5)) {
+              sharedSearches.push(
+                `"${artistA.name}" "${artistB.name}"`
+              );
+            }
+          }
         }
       }
 

@@ -4,6 +4,7 @@ const BACKEND_URL = 'http://127.0.0.1:8888';
 
 const Room = ({ onRoomJoined }) => {
   const [joinCode, setJoinCode] = useState('');
+  const [maxUsers, setMaxUsers] = useState(4);
   const [error, setError] = useState('');
 
   const createRoom = async () => {
@@ -12,9 +13,19 @@ const Room = ({ onRoomJoined }) => {
 
       const response = await fetch(`${BACKEND_URL}/rooms`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          maxUsers,
+        }),
       });
 
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Could not create room');
+      }
 
       onRoomJoined(data.roomCode, data.userId, data.users);
 
@@ -74,6 +85,29 @@ const Room = ({ onRoomJoined }) => {
           <p className="text-gray-400 text-sm mb-6">
             Create a room and sync together.
           </p>
+
+          {/* Maximum Users */}
+          <div className="mb-6">
+            <p className="text-gray-300 text-sm mb-3">
+              Maximum people
+            </p>
+
+            <div className="grid grid-cols-7 gap-2">
+              {[2, 3, 4, 5, 6, 7, 8].map((number) => (
+                <button
+                  key={number}
+                  onClick={() => setMaxUsers(number)}
+                  className={`py-2 rounded-lg font-semibold transition ${
+                    maxUsers === number
+                      ? 'bg-green-500 text-black'
+                      : 'bg-slate-900 text-gray-300 hover:bg-slate-700'
+                  }`}
+                >
+                  {number}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <button
             onClick={createRoom}
