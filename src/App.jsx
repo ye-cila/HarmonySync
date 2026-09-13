@@ -2,7 +2,10 @@ import { useState, useEffect } from 'react';
 
 import { useSpotifyTaste } from './hooks/useSpotifyTaste';
 
-import { findSharedArtists } from './utils/tasteProfile';
+import { 
+  createBlend,
+  createHarmonyPlaylist,
+} from './utils/tasteProfile';
 
 import Room from './components/Room';
 
@@ -10,12 +13,15 @@ import RoomLobby from './components/RoomLobby';
 
 import { io } from 'socket.io-client';
 
+
 function App() {
   const [accessToken, setAccessToken] = useState('');
   const [timeRange, setTimeRange] = useState('medium_term');
   const [roomCode, setRoomCode] = useState('');
   const [roomUsers, setRoomUsers] = useState([]);
   const [socket, setSocket] = useState(null);
+  const [userId, setUserId] = useState('');
+  const [showRoom, setShowRoom] = useState(false);
   
   const {
     profile: userProfile,
@@ -29,6 +35,7 @@ function App() {
     const newSocket = io('http://127.0.0.1:8888');
 
     newSocket.on('room-users', (users) => {
+      console.log('Room users:', users);
       setRoomUsers(users);
     });
 
@@ -69,8 +76,28 @@ function App() {
     window.location.href = 'http://127.0.0.1:8888/login';
   };
 
+  // Calculate the blend score
+  const blend =
+  roomUsers.length >= 2
+    ? createBlend(
+        roomUsers[0].topArtists || [],
+        roomUsers[1].topArtists || []
+      )
+    : null;
+
+  const harmonyPlaylist =
+  roomUsers.length >= 2
+    ? createHarmonyPlaylist(
+        roomUsers[0].topTracks || [],
+        roomUsers[1].topTracks || [],
+        roomUsers[0].topArtists || [],
+        roomUsers[1].topArtists || []
+      )
+    : [];
+
+
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen w-full bg-black text-white flex flex-col items-center p-4 sm:p-6">
       <h1 className="text-4xl font-bold mb-6 text-green-500">HarmonySync</h1>
       
       {!accessToken ? (
@@ -84,22 +111,7 @@ function App() {
           </button>
         </div>
       ) : (
-        <div className="w-full max-w-2xl bg-slate-800 p-6 rounded-2xl shadow-xl">
-          {roomCode ? (
-            <RoomLobby
-              roomCode={roomCode}
-              users={roomUsers}
-            />
-          ) : (
-            <Room
-              onRoomJoined={(roomCode, users) => {
-                setRoomCode(roomCode);
-                setRoomUsers(users);
-
-                socket.emit('join-room', roomCode);
-              }}
-            />
-          )}
+        <div className="w-full max-w-5xl bg-slate-800 p-4 sm:p-6 rounded-2xl shadow-xl">
           {/* User Profile */}
           {userProfile && (
             <div className="flex items-center justify-between border-b border-slate-700 pb-4 mb-6">
@@ -125,107 +137,149 @@ function App() {
             </div>
           )}
 
-          {/* Top Tracks */}
-          <div>
-            <div className="flex gap-2 mb-4">
-              {[
-                { value: 'short_term', label: '4 Weeks' },
-                { value: 'medium_term', label: '6 Months' },
-                { value: 'long_term', label: '1 Year' },
-              ].map((range) => (
-                <button
-                  key={range.value}
-                  onClick={() => setTimeRange(range.value)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-                    timeRange === range.value
-                      ? 'bg-green-500 text-black'
-                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                  }`}
-                >
-                  {range.label}
-                </button>
-              ))}
-            </div>
+          {/* Show Room Pages */}
+          {showRoom && (
+            <>
+              {roomCode ? (
+                <RoomLobby
+                  roomCode={roomCode}
+                  users={roomUsers}
+                  blend={blend}
+                  harmonyPlaylist={harmonyPlaylist}
+                />
+              ) : (
+                <Room
+                  onRoomJoined={(roomCode, userId, users) => {
+                    setRoomCode(roomCode);
+                    setRoomUsers(users);
+                    setUserId(userId);
 
-            <h3 className="text-lg font-semibold mb-4 text-green-300">🎵 Top 5 Recent Tracks </h3>
+                    socket.emit('join-room', {
+                      roomCode,
+                      userId,
+                      topArtists,
+                      topTracks,
+                    });
+                  }}
+                />
+              )}
+            </>
+          )}
+          
+          {/* Spotify Taste */}
+          {!showRoom && ( 
+            <>
+              {/* Show Room Button */}
+              <button
+                onClick={() => setShowRoom(true)}
+                className="w-full mb-6 bg-green-500 hover:bg-green-400 text-black font-bold py-3 px-6 rounded-xl transition"
+              >
+                🎧 Create / Join Room
+              </button>
 
-            {loading ? (
-              <p className="text-slate-400 text-center py-4">Waiting for Spotify...</p>
-            ) : topTracks.length > 0 ? (
-              <ul className="space-y-3">
-                {topTracks.map((track, index) => (
-                  <li 
-                    key={track.id} 
-                    className="flex items-center justify-between bg-slate-700/50 p-3 rounded-xl hover:bg-slate-700 transition">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-slate-400 font-bold w-4">
-                        {index + 1}
-                      </span>
+              {/* Top Tracks */}
+              <div>
+                <div className="flex gap-2 mb-4">
+                  {[
+                    { value: 'short_term', label: '4 Weeks' },
+                    { value: 'medium_term', label: '6 Months' },
+                    { value: 'long_term', label: '1 Year' },
+                  ].map((range) => (
+                    <button
+                      key={range.value}
+                      onClick={() => setTimeRange(range.value)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition ${
+                        timeRange === range.value
+                          ? 'bg-green-500 text-black'
+                          : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                      }`}
+                    >
+                      {range.label}
+                    </button>
+                  ))}
+                </div>
 
-                      {track.album?.images?.[0]?.url && (
-                        <img 
-                          src={track.album.images[0].url} 
-                          alt="" 
-                          className="w-10 h-10 rounded object-cover" />
-                      )}
-                      <div>
-                        <p className="font-semibold text-sm line-clamp-1">{track.name}</p>
-                        <p className="text-xs text-slate-400">{track.artists.map(a => a.name).join(', ')}</p>
-                      </div>
-                    </div>
-                    <span className="text-xs text-slate-400">
-                      {Math.floor(track.duration_ms / 60000)}:{String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0')}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-slate-400 text-center py-4">No Track Founded. Lose Your Vibe?</p>
-            )}
-          </div>
+                <h3 className="text-lg font-semibold mb-4 text-green-300">🎵 Top 5 Recent Tracks </h3>
 
-          {/* Top Artists */}
-          <div className="mt-8">
-            <h3 className="text-lg font-semibold mb-4 text-green-300"> 🎤 Top 5 Artists </h3>
+                {loading ? (
+                  <p className="text-slate-400 text-center py-4">Waiting for Spotify...</p>
+                ) : topTracks.length > 0 ? (
+                  <ul className="space-y-3">
+                    {topTracks.slice(0, 5).map((track, index) => (
+                      <li 
+                        key={track.id} 
+                        className="flex items-center justify-between gap-3 bg-slate-700/50 p-3 rounded-xl hover:bg-slate-700 transition">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-slate-400 font-bold w-4">
+                            {index + 1}
+                          </span>
 
-            {loading ? (
-              <p className="text-slate-400 text-center py-4"> Waiting for Spotify... </p>
-            ) : topArtists.length > 0 ? (
-              <ul className="space-y-3">
-                {topArtists.map((artist, index) => (
-                  <li
-                    key={artist.id}
-                    className="flex items-center bg-slate-700/50 p-3 rounded-xl hover:bg-slate-700 transition">
-                    <span className="text-slate-400 font-bold w-6">
-                      {index + 1}
-                    </span>
+                          {track.album?.images?.[0]?.url && (
+                            <img 
+                              src={track.album.images[0].url} 
+                              alt="" 
+                              className="w-10 h-10 rounded object-cover" />
+                          )}
+                          <div className="min-w-0">
+                            <p className="font-semibold text-sm line-clamp-1">{track.name}</p>
+                            <p className="text-xs text-slate-400">{track.artists.map(a => a.name).join(', ')}</p>
+                          </div>
+                        </div>
+                        <span className="text-xs text-slate-400">
+                          {Math.floor(track.duration_ms / 60000)}:{String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0')}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-slate-400 text-center py-4">No Track Founded. Lose Your Vibe?</p>
+                )}
+              </div>
 
-                    {artist.images?.[0]?.url && (
-                      <img
-                        src={artist.images[0].url}
-                        alt=""
-                        className="w-10 h-10 rounded-full object-cover mr-3"
-                      />
-                    )}
+              {/* Top Artists */}
+              <div className="mt-8">
+                <h3 className="text-lg font-semibold mb-4 text-green-300"> 🎤 Top 5 Artists </h3>
 
-                    <div>
-                      <p className="font-semibold text-sm">
-                        {artist.name}
-                      </p>
+                {loading ? (
+                  <p className="text-slate-400 text-center py-4"> Waiting for Spotify... </p>
+                ) : topArtists.length > 0 ? (
+                  <ul className="space-y-3">
+                    {topArtists.map((artist, index) => (
+                      <li
+                        key={artist.id}
+                        className="flex items-center gap-3 bg-slate-700/50 p-3 rounded-xl hover:bg-slate-700 transition">
+                        <span className="text-slate-400 font-bold w-6">
+                          {index + 1}
+                        </span>
 
-                      <p className="text-xs text-slate-400">
-                        {artist.genres?.slice(0, 3).join(', ') || 'No genre data'}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-slate-400 text-center py-4">
-                No artists found.
-              </p>
-            )}
-          </div>
+                        {artist.images?.[0]?.url && (
+                          <img
+                            src={artist.images[0].url}
+                            alt=""
+                            className="w-10 h-10 rounded-full object-cover mr-3"
+                          />
+                        )}
+
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm truncate">
+                            {artist.name}
+                          </p>
+
+                          <p className="text-xs text-slate-400">
+                            {artist.genres?.slice(0, 3).join(', ') || 'No genre data'}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-slate-400 text-center py-4">
+                    No artists found.
+                  </p>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

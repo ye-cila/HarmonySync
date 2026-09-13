@@ -25,7 +25,7 @@ export const getUserProfile = async (accessToken) => {
 export const getTopTracks = async (
   accessToken,
   timeRange = 'medium_term',
-  limit = 5
+  limit = 20
 ) => {
   return spotifyFetch(
     `/me/top/tracks?time_range=${timeRange}&limit=${limit}`,
