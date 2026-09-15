@@ -6,6 +6,7 @@ import { io } from 'socket.io-client';
 import Game from './components/Game';
 import PlayerSetup from './components/PlayerSetup';
 import SpotifyPreviewPlayer from './components/SpotifyPreviewPlayer';
+import WerewolfGame from './components/WerewolfGame';
 
 function App() {
   const [accessToken, setAccessToken] = useState('');
@@ -23,6 +24,9 @@ function App() {
   const [showPlayerSetup, setShowPlayerSetup] = useState(false);
   const [playerLeft, setPlayerLeft] = useState(null);
   const [nameTaken, setNameTaken] = useState(false);
+  const [werewolfStarted, setWerewolfStarted] = useState(false);
+  const [maxUsers, setMaxUsers] = useState(0);
+  const [werewolfData, setWerewolfData] = useState(null);
 
   const {
     profile: userProfile,
@@ -66,6 +70,7 @@ function App() {
 
     newSocket.on('game-ended', () => {
       setGameStarted(false);
+      setWerewolfStarted(false);
       setCurrentRound(null);
       setRoundResult(null);
     });
@@ -73,6 +78,12 @@ function App() {
     // game-started listener
     newSocket.on('game-started', () => {
       setGameStarted(true);
+    });
+
+    newSocket.on('werewolf-started', (data) => {
+      console.log('Werewolf started:', data);
+      setWerewolfData(data);
+      setWerewolfStarted(true);
     });
 
     newSocket.on('new-round', (round) => {
@@ -238,7 +249,16 @@ function App() {
                     }}
                   />
                 ) : (
-                  gameStarted ? (
+                  werewolfStarted ? (
+                    <WerewolfGame
+                      socket={socket}
+                      roomCode={roomCode}
+                      userId={userId}
+                      roomUsers={roomUsers}
+                      werewolfData={werewolfData}
+                    />
+
+                  ) : gameStarted ? (
                     <Game round={currentRound} 
                       roundResult={roundResult}
                       roomUsers={roomUsers}
@@ -270,9 +290,15 @@ function App() {
                     <RoomLobby
                       roomCode={roomCode}
                       users={roomUsers}
+                      maxUsers={maxUsers}
                       isHost={roomUsers[0]?.id === userId}
                       onStartGame={() => {
                         socket.emit('start-game', {
+                          roomCode,
+                        });
+                      }}
+                      onStartWerewolf={() => {
+                        socket.emit('start-werewolf', {
                           roomCode,
                         });
                       }}
@@ -282,10 +308,11 @@ function App() {
               ) : (
                 // No room code
                 <Room
-                  onRoomJoined={(roomCode, userId, users) => {
+                  onRoomJoined={(roomCode, userId, users, maxUsers) => {
                     setRoomCode(roomCode);
                     setRoomUsers(users);
                     setUserId(userId);
+                    setMaxUsers(maxUsers);
                     setShowPlayerSetup(true);
                   }}
                 />

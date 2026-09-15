@@ -1,8 +1,10 @@
 const RoomLobby = ({
   roomCode,
   users,
+  maxUsers,
   isHost,
   onStartGame,
+  onStartWerewolf,
 }) => {
 
   return (
@@ -21,11 +23,13 @@ const RoomLobby = ({
       </p>
 
       <div className="mb-6">
+
         <h3 className="text-lg font-semibold text-white mb-3">
           Players
         </h3>
 
         <div className="space-y-2">
+
           {users.map((user) => (
             <div
               key={user.id}
@@ -34,29 +38,47 @@ const RoomLobby = ({
               👤 {user.playerName}
             </div>
           ))}
+
         </div>
+
       </div>
 
       <p className="text-gray-400 mb-6">
         {users.length < 2
           ? 'Waiting for another player to join...'
-          : 'Everyone is ready? Let the game begin!'}
+          : 'Everyone is ready? Choose a game!'}
       </p>
 
       {isHost && (
-        <button
-          onClick={onStartGame}
-          disabled={users.length < 2}
-          className="w-full bg-green-500 hover:bg-green-400 disabled:bg-slate-600 disabled:text-gray-400 text-black font-bold py-3 px-6 rounded-xl transition"
-        >
-          Start Game
-        </button>
+
+        <div className="space-y-3">
+
+          <button
+            onClick={onStartGame}
+            disabled={users.length < 2}
+            className="w-full bg-green-500 hover:bg-green-400 disabled:bg-slate-600 disabled:text-gray-400 text-black font-bold py-3 px-6 rounded-xl transition"
+          >
+            🎵 Spotify Guess
+          </button>
+
+          <button
+            onClick={onStartWerewolf}
+            disabled={false}
+            className="w-full bg-purple-600 hover:bg-purple-500 disabled:bg-slate-600 disabled:text-gray-400 text-white font-bold py-3 px-6 rounded-xl transition"
+          >
+            🐺 Music Werewolf
+          </button>
+
+        </div>
+
       )}
 
       {!isHost && users.length >= 2 && (
+
         <p className="text-gray-400 text-sm">
-          Waiting for the host to start the game...
+          Waiting for the host to choose a game...
         </p>
+
       )}
 
     </div>
