@@ -1,17 +1,92 @@
 const SPOTIFY_API_URL = 'https://api.spotify.com/v1';
 
-const spotifyFetch = async (endpoint, accessToken) => {
-  const response = await fetch(`${SPOTIFY_API_URL}${endpoint}`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+const sleep = (ms) =>
+  new Promise((resolve) => setTimeout(resolve, ms));
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
+const spotifyFetch = async (
+  endpoint,
+  accessToken,
+  retries = 3
+) => {
+  const response = await fetch(
+    `${SPOTIFY_API_URL}${endpoint}`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (response.status === 429) {
+    const retryAfter =
+      response.headers.get('Retry-After');
+
+    const waitSeconds = retryAfter
+      ? Number(retryAfter)
+      : 5;
+
+    if (retries > 0) {
+      console.log(
+        `Spotify rate limited. Waiting ${waitSeconds} seconds...`
+      );
+
+      await sleep(waitSeconds * 1000);
+
+      return spotifyFetch(
+        endpoint,
+        accessToken,
+        retries - 1
+      );
+    }
 
     throw new Error(
-      errorData.error?.message || `Spotify API error: ${response.status}`
+      'Spotify rate limit reached after multiple retries.'
+    );
+  }
+
+  if (response.status === 401) {
+    const refreshToken = localStorage.getItem(
+      'spotify_refresh_token'
+    );
+
+    if (refreshToken && retries > 0) {
+      const refreshResponse = await fetch(
+        'http://127.0.0.1:8888/refresh',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            refresh_token: refreshToken,
+          }),
+        }
+      );
+
+      const refreshData = await refreshResponse.json();
+
+      if (refreshResponse.ok) {
+        localStorage.setItem(
+          'spotify_token',
+          refreshData.access_token
+        );
+
+        return spotifyFetch(
+          endpoint,
+          refreshData.access_token,
+          retries - 1
+        );
+      }
+    }
+  }
+
+  if (!response.ok) {
+    const errorData =
+      await response.json().catch(() => ({}));
+
+    throw new Error(
+      errorData.error?.message ||
+        `Spotify API error: ${response.status}`
     );
   }
 
@@ -76,4 +151,29 @@ export const searchSpotify = async (
     `/search?q=${encodeURIComponent(query)}&type=${type}&limit=${limit}`,
     accessToken
   );
+};
+
+export const refreshAccessToken = async (refreshToken) => {
+  const response = await fetch(
+    'http://127.0.0.1:8888/refresh',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        refresh_token: refreshToken,
+      }),
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data.error || 'Could not refresh access token'
+    );
+  }
+
+  return data;
 };

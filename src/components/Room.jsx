@@ -6,7 +6,7 @@ const Room = ({ onRoomJoined }) => {
   const [joinCode, setJoinCode] = useState('');
   const [maxUsers, setMaxUsers] = useState(4);
   const [error, setError] = useState('');
-
+  
   const createRoom = async () => {
     try {
       setError('');
@@ -43,6 +43,10 @@ const Room = ({ onRoomJoined }) => {
         `${BACKEND_URL}/rooms/${joinCode}/join`,
         {
           method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({}),
         }
       );
 

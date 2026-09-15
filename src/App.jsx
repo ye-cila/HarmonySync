@@ -1,25 +1,10 @@
 import { useState, useEffect } from 'react';
-
 import { useSpotifyTaste } from './hooks/useSpotifyTaste';
-
-import { 
-  createBlend,
-  createHarmonyPlaylist,
-  createTasteProfile,
-} from './utils/tasteProfile';
-
 import Room from './components/Room';
-
 import RoomLobby from './components/RoomLobby';
-
 import { io } from 'socket.io-client';
-
-import {
-  getArtistAlbums,
-  getAlbumTracks,
-  searchSpotify,
-} from './services/spotifyService';
-
+import Game from './components/Game';
+import PlayerSetup from './components/PlayerSetup';
 
 function App() {
   const [accessToken, setAccessToken] = useState('');
@@ -29,8 +14,13 @@ function App() {
   const [socket, setSocket] = useState(null);
   const [userId, setUserId] = useState('');
   const [showRoom, setShowRoom] = useState(false);
-  const [candidateTracks, setCandidateTracks] = useState([]);
-  
+  const [gameStarted, setGameStarted] = useState(false);
+  const [currentRound, setCurrentRound] = useState(null);
+  const [answerResult, setAnswerResult] = useState(null);
+  const [roundResult, setRoundResult] = useState(null);
+  const [playerName, setPlayerName] = useState('');
+  const [showPlayerSetup, setShowPlayerSetup] = useState(false);
+
   const {
     profile: userProfile,
     tracks: topTracks,
@@ -42,9 +32,29 @@ function App() {
   useEffect(() => {
     const newSocket = io('http://127.0.0.1:8888');
 
+    // room-users listener
     newSocket.on('room-users', (users) => {
       console.log('Room users:', users);
       setRoomUsers(users);
+    });
+
+    // game-started listener
+    newSocket.on('game-started', () => {
+      setGameStarted(true);
+    });
+
+    newSocket.on('new-round', (round) => {
+      console.log('New round:', round);
+      setCurrentRound(round);
+    });
+
+    newSocket.on('round-result', (result) => {
+      console.log('Round result:', result);
+      setRoundResult(result);
+    });
+
+    newSocket.on('answer-result', (result) => {
+      setAnswerResult(result);
     });
 
     setSocket(newSocket);
@@ -55,15 +65,24 @@ function App() {
   }, []);
 
   useEffect(() => {
+  }, [roomUsers, userId]);
+
+  useEffect(() => {
     // Receive Token from URL after Spotify redirect to frontend
     const query = new URLSearchParams(window.location.search);
     const token = query.get('access_token');
+    const refreshToken = query.get('refresh_token');
 
     // Access token and save to localStorage in case there is no access_token on the URL
     if (token) {
       setAccessToken(token);
       // Temporarily save access token to localStorage
       localStorage.setItem('spotify_token', token);
+
+      // Save refresh token
+      if (refreshToken) {
+        localStorage.setItem('spotify_refresh_token', refreshToken);
+      }
       
       // Format URL
       window.history.pushState({}, null, '/');
@@ -83,135 +102,6 @@ function App() {
     // Redirect to /login in Backend
     window.location.href = 'http://127.0.0.1:8888/login';
   };
-
-  // Calculate the blend score
-  const blend =
-  roomUsers.length >= 2
-    ? createBlend(
-        roomUsers[0].topArtists || [],
-        roomUsers[1].topArtists || []
-      )
-    : null;
-
-  const tasteProfileA =
-    roomUsers.length >= 1
-      ? createTasteProfile(
-          roomUsers[0].topTracks || [],
-          roomUsers[0].topArtists || []
-        )
-      : null;
-
-  const tasteProfileB =
-    roomUsers.length >= 2
-      ? createTasteProfile(
-          roomUsers[1].topTracks || [],
-          roomUsers[1].topArtists || []
-        )
-      : null;
-
-  const harmonyPlaylist =
-  roomUsers.length >= 2
-    ? createHarmonyPlaylist(
-        roomUsers,
-        candidateTracks
-      )
-    : [];
-
-  useEffect(() => {
-  if (!accessToken || roomUsers.length < 2) {
-    setCandidateTracks([]);
-    return;
-  }
-
-  const expandHarmony = async () => {
-    try {
-      const allArtists = roomUsers.flatMap(
-        (user) => user.topArtists || []
-      );
-
-      // Remove duplicate artists
-      const uniqueArtists = [
-        ...new Map(
-          allArtists.map((artist) => [artist.id, artist])
-        ).values(),
-      ];
-
-      // Use the strongest artists as taste seeds
-      const seedArtists = uniqueArtists.slice(0, 10);
-
-      const candidateTracks = [];
-
-      // Search Spotify using each seed artist
-      for (const artist of seedArtists) {
-        const response = await searchSpotify(
-          `"${artist.name}"`,
-          accessToken,
-          'track',
-          10
-        );
-
-        if (response.tracks?.items) {
-          candidateTracks.push(...response.tracks.items);
-        }
-      }
-
-      // Also search combinations of artists from both users
-      const sharedSearches = [];
-
-      for (let i = 0; i < roomUsers.length; i++) {
-        for (let j = i + 1; j < roomUsers.length; j++) {
-          const artistsA = roomUsers[i].topArtists || [];
-          const artistsB = roomUsers[j].topArtists || [];
-
-          for (const artistA of artistsA.slice(0, 5)) {
-            for (const artistB of artistsB.slice(0, 5)) {
-              sharedSearches.push(
-                `"${artistA.name}" "${artistB.name}"`
-              );
-            }
-          }
-        }
-      }
-
-      for (const query of sharedSearches) {
-        const response = await searchSpotify(
-          query,
-          accessToken,
-          'track',
-          10
-        );
-
-        if (response.tracks?.items) {
-          candidateTracks.push(...response.tracks.items);
-        }
-      }
-
-      // Remove duplicate Spotify track IDs
-      const uniqueTracks = [
-        ...new Map(
-          candidateTracks.map((track) => [track.id, track])
-        ).values(),
-      ];
-
-      console.log(
-        'Harmony candidates:',
-        uniqueTracks.length
-      );
-
-      setCandidateTracks(uniqueTracks);
-
-    } catch (error) {
-      console.error(
-        'Harmony expansion error:',
-        error
-      );
-
-      setCandidateTracks([]);
-    }
-  };
-
-  expandHarmony();
-}, [accessToken, roomUsers]);
 
 
   return (
@@ -259,25 +149,64 @@ function App() {
           {showRoom && (
             <>
               {roomCode ? (
-                <RoomLobby
-                  roomCode={roomCode}
-                  users={roomUsers}
-                  blend={blend}
-                  harmonyPlaylist={harmonyPlaylist}
-                />
+                // Have room code
+                showPlayerSetup ? (
+                  <PlayerSetup
+                    onContinue={(name) => {
+                      setPlayerName(name);
+                      setShowPlayerSetup(false);
+
+                      socket.emit('join-room', {
+                        roomCode,
+                        userId,
+                        playerName: name,
+                        topArtists,
+                        topTracks,
+                      });
+                    }}
+                  />
+                ) : (
+                  gameStarted ? (
+                    <Game round={currentRound} 
+                      roundResult={roundResult}
+                      roomUsers={roomUsers}
+                      onAnswer={(selectedUserId) => {
+                        socket.emit('submit-answer', {
+                          roomCode,
+                          userId,
+                          selectedUserId,
+                        });
+                      }}
+
+                      onNextRound={() => {
+                        setRoundResult(null);
+
+                        socket.emit('next-round', {
+                          roomCode,
+                        });
+                      }}
+                    />
+                  ) : (
+                    <RoomLobby
+                      roomCode={roomCode}
+                      users={roomUsers}
+                      isHost={roomUsers[0]?.id === userId}
+                      onStartGame={() => {
+                        socket.emit('start-game', {
+                          roomCode,
+                        });
+                      }}
+                    />
+                  )
+                )
               ) : (
+                // No room code
                 <Room
                   onRoomJoined={(roomCode, userId, users) => {
                     setRoomCode(roomCode);
                     setRoomUsers(users);
                     setUserId(userId);
-
-                    socket.emit('join-room', {
-                      roomCode,
-                      userId,
-                      topArtists,
-                      topTracks,
-                    });
+                    setShowPlayerSetup(true);
                   }}
                 />
               )}
