@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const PlayerSetup = ({ onContinue }) => {
+const PlayerSetup = ({ onContinue, nameTaken, onNameChange }) => {
   const [playerName, setPlayerName] = useState('');
 
   const handleContinue = () => {
@@ -27,7 +27,10 @@ const PlayerSetup = ({ onContinue }) => {
       <input
         type="text"
         value={playerName}
-        onChange={(e) => setPlayerName(e.target.value)}
+        onChange={(e) => {
+            setPlayerName(e.target.value);
+            onNameChange();
+        }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             handleContinue();
@@ -37,6 +40,12 @@ const PlayerSetup = ({ onContinue }) => {
         maxLength={20}
         className="w-full bg-slate-700 text-white placeholder-gray-400 px-4 py-3 rounded-xl mb-4 outline-none focus:ring-2 focus:ring-green-500"
       />
+
+      {nameTaken && (
+        <p className="text-red-400 text-sm mb-4">
+            That name is already taken. Please choose another name.
+        </p>
+        )}
 
       <button
         onClick={handleContinue}

@@ -5,6 +5,7 @@ import RoomLobby from './components/RoomLobby';
 import { io } from 'socket.io-client';
 import Game from './components/Game';
 import PlayerSetup from './components/PlayerSetup';
+import SpotifyPreviewPlayer from './components/SpotifyPreviewPlayer';
 
 function App() {
   const [accessToken, setAccessToken] = useState('');
@@ -20,6 +21,8 @@ function App() {
   const [roundResult, setRoundResult] = useState(null);
   const [playerName, setPlayerName] = useState('');
   const [showPlayerSetup, setShowPlayerSetup] = useState(false);
+  const [playerLeft, setPlayerLeft] = useState(null);
+  const [nameTaken, setNameTaken] = useState(false);
 
   const {
     profile: userProfile,
@@ -29,6 +32,13 @@ function App() {
     error,
   } = useSpotifyTaste(accessToken, timeRange);
 
+  console.log(
+    topTracks.map((track) => ({
+      name: track.name,
+      preview_url: track.preview_url,
+    }))
+  );
+
   useEffect(() => {
     const newSocket = io('http://127.0.0.1:8888');
 
@@ -36,6 +46,28 @@ function App() {
     newSocket.on('room-users', (users) => {
       console.log('Room users:', users);
       setRoomUsers(users);
+    });
+
+    newSocket.on('player-left', ({ playerName, userId: leavingUserId }) => {
+      setPlayerLeft({
+        playerName,
+        userId: leavingUserId,
+      });       
+    });
+
+    newSocket.on('name-taken', () => {
+      setNameTaken(true);
+    });
+
+    newSocket.on('join-room-success', () => {
+      setNameTaken(false);
+      setShowPlayerSetup(false);
+    });
+
+    newSocket.on('game-ended', () => {
+      setGameStarted(false);
+      setCurrentRound(null);
+      setRoundResult(null);
     });
 
     // game-started listener
@@ -93,6 +125,32 @@ function App() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!playerLeft) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      const isMe = playerLeft.userId === userId;
+
+      setPlayerLeft(null);
+
+      if (isMe) {
+        setRoomCode('');
+        setRoomUsers([]);
+        setUserId('');
+        setGameStarted(false);
+        setCurrentRound(null);
+        setRoundResult(null);
+        setShowRoom(false);
+      } else {
+        setRoundResult(null);
+      }
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [playerLeft, userId]);
+
   const handleLogout = () => {
     setAccessToken('');
     localStorage.removeItem('spotify_token');
@@ -106,6 +164,18 @@ function App() {
 
   return (
     <div className="min-h-screen w-full bg-black text-white flex flex-col items-center p-4 sm:p-6">
+      {playerLeft && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+          <div className="bg-green-500 text-black px-8 py-6 rounded-2xl shadow-2xl text-center">
+            <h2 className="text-2xl font-bold">
+              {playerLeft.userId === userId
+                ? '👋 You left the room'
+                : `👋 ${playerLeft.playerName} left the room`}
+            </h2>
+          </div>
+        </div>
+      )}
+
       <h1 className="text-4xl font-bold mb-6 text-green-500">HarmonySync</h1>
       
       {!accessToken ? (
@@ -152,9 +222,11 @@ function App() {
                 // Have room code
                 showPlayerSetup ? (
                   <PlayerSetup
+                    nameTaken={nameTaken}
+                    onNameChange={() => setNameTaken(false)}
                     onContinue={(name) => {
                       setPlayerName(name);
-                      setShowPlayerSetup(false);
+                      setNameTaken(false);
 
                       socket.emit('join-room', {
                         roomCode,
@@ -183,6 +255,13 @@ function App() {
 
                         socket.emit('next-round', {
                           roomCode,
+                        });
+                      }}
+
+                      onQuit={() => {
+                        socket.emit('quit-game', {
+                          roomCode,
+                          userId,
                         });
                       }}
                     />
@@ -251,33 +330,7 @@ function App() {
                 {loading ? (
                   <p className="text-slate-400 text-center py-4">Waiting for Spotify...</p>
                 ) : topTracks.length > 0 ? (
-                  <ul className="space-y-3">
-                    {topTracks.slice(0, 5).map((track, index) => (
-                      <li 
-                        key={track.id} 
-                        className="flex items-center justify-between gap-3 bg-slate-700/50 p-3 rounded-xl hover:bg-slate-700 transition">
-                        <div className="flex items-center space-x-3">
-                          <span className="text-slate-400 font-bold w-4">
-                            {index + 1}
-                          </span>
-
-                          {track.album?.images?.[0]?.url && (
-                            <img 
-                              src={track.album.images[0].url} 
-                              alt="" 
-                              className="w-10 h-10 rounded object-cover" />
-                          )}
-                          <div className="min-w-0">
-                            <p className="font-semibold text-sm line-clamp-1">{track.name}</p>
-                            <p className="text-xs text-slate-400">{track.artists.map(a => a.name).join(', ')}</p>
-                          </div>
-                        </div>
-                        <span className="text-xs text-slate-400">
-                          {Math.floor(track.duration_ms / 60000)}:{String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0')}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  <SpotifyPreviewPlayer tracks={topTracks.slice(0, 5)} />
                 ) : (
                   <p className="text-slate-400 text-center py-4">No Track Founded. Lose Your Vibe?</p>
                 )}
@@ -308,10 +361,15 @@ function App() {
                         )}
 
                         <div className="min-w-0">
-                          <p className="font-semibold text-sm truncate">
+                          <a
+                            href={artist.external_urls?.spotify}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold text-sm truncate hover:text-green-400 transition block"
+                          >
                             {artist.name}
-                          </p>
-
+                          </a>
+                          
                           <p className="text-xs text-slate-400">
                             {artist.genres?.slice(0, 3).join(', ') || 'No genre data'}
                           </p>

@@ -102,10 +102,14 @@ export const getTopTracks = async (
   timeRange = 'medium_term',
   limit = 20
 ) => {
-  return spotifyFetch(
+  const data = await spotifyFetch(
     `/me/top/tracks?time_range=${timeRange}&limit=${limit}`,
     accessToken
   );
+
+  console.log('RAW TRACK:', data.items[0]);
+
+  return data;
 };
 
 export const getTopArtists = async (
