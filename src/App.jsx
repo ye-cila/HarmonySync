@@ -255,6 +255,7 @@ function App() {
 
                         socket.emit('next-round', {
                           roomCode,
+                          userId,
                         });
                       }}
 
@@ -369,7 +370,7 @@ function App() {
                           >
                             {artist.name}
                           </a>
-                          
+
                           <p className="text-xs text-slate-400">
                             {artist.genres?.slice(0, 3).join(', ') || 'No genre data'}
                           </p>
