@@ -7,6 +7,8 @@ import Game from './components/Game';
 import PlayerSetup from './components/PlayerSetup';
 import SpotifyPreviewPlayer from './components/SpotifyPreviewPlayer';
 import WerewolfGame from './components/WerewolfGame';
+import LandingPage from './components/LandingPage';
+import Rankings from './components/Rankings';
 
 function App() {
   const [accessToken, setAccessToken] = useState('');
@@ -16,24 +18,28 @@ function App() {
   const [socket, setSocket] = useState(null);
   const [userId, setUserId] = useState('');
   const [showRoom, setShowRoom] = useState(false);
+  const [activePage, setActivePage] = useState('home');
   const [gameStarted, setGameStarted] = useState(false);
   const [currentRound, setCurrentRound] = useState(null);
-  const [answerResult, setAnswerResult] = useState(null);
   const [roundResult, setRoundResult] = useState(null);
-  const [playerName, setPlayerName] = useState('');
+  const [roomPlayerName, setRoomPlayerName] = useState('');
   const [showPlayerSetup, setShowPlayerSetup] = useState(false);
   const [playerLeft, setPlayerLeft] = useState(null);
   const [nameTaken, setNameTaken] = useState(false);
   const [werewolfStarted, setWerewolfStarted] = useState(false);
   const [maxUsers, setMaxUsers] = useState(0);
   const [werewolfData, setWerewolfData] = useState(null);
+  const [blendContext, setBlendContext] = useState('focus');
+  const [blendHostId, setBlendHostId] = useState('');
+  const [contextBlend, setContextBlend] = useState(null);
+  const [blendError, setBlendError] = useState('');
 
   const {
     profile: userProfile,
     tracks: topTracks,
     artists: topArtists,
+    blendCandidates,
     loading,
-    error,
   } = useSpotifyTaste(accessToken, timeRange);
 
   console.log(
@@ -96,8 +102,46 @@ function App() {
       setRoundResult(result);
     });
 
-    newSocket.on('answer-result', (result) => {
-      setAnswerResult(result);
+    newSocket.on('context-blend-ready', (blend) => {
+      setContextBlend(blend);
+      setBlendError('');
+    });
+
+    newSocket.on('blend-context-state', ({ context, hostId, blend }) => {
+      setBlendContext(context || 'focus');
+      setBlendHostId(hostId || '');
+      setContextBlend(blend || null);
+      setBlendError('');
+    });
+
+    newSocket.on('context-blend-error', ({ error }) => {
+      setBlendError(error || 'Could not create blend');
+    });
+
+    newSocket.on('werewolf-ended', () => {
+      setWerewolfStarted(false);
+      setWerewolfData(null);
+      setCurrentRound(null);
+      setRoundResult(null);
+    });
+
+    newSocket.on('room-left', () => {
+      setRoomCode('');
+      setRoomUsers([]);
+      setUserId('');
+      setRoomPlayerName('');
+      setShowPlayerSetup(false);
+      setShowRoom(false);
+      setActivePage('home');
+      setGameStarted(false);
+      setWerewolfStarted(false);
+      setWerewolfData(null);
+      setCurrentRound(null);
+      setRoundResult(null);
+      setBlendContext('focus');
+      setBlendHostId('');
+      setContextBlend(null);
+      setBlendError('');
     });
 
     setSocket(newSocket);
@@ -106,9 +150,6 @@ function App() {
       newSocket.disconnect();
     };
   }, []);
-
-  useEffect(() => {
-  }, [roomUsers, userId]);
 
   useEffect(() => {
     // Receive Token from URL after Spotify redirect to frontend
@@ -137,6 +178,21 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (!socket || !roomCode || !userId || !roomPlayerName || showPlayerSetup) {
+      return;
+    }
+
+    socket.emit('update-room-taste', {
+      roomCode,
+      userId,
+      playerName: roomPlayerName,
+      topArtists,
+      topTracks,
+      blendCandidates,
+    });
+  }, [socket, roomCode, userId, roomPlayerName, showPlayerSetup, topArtists, topTracks, blendCandidates]);
+
+  useEffect(() => {
     if (!playerLeft) {
       return;
     }
@@ -147,9 +203,10 @@ function App() {
       setPlayerLeft(null);
 
       if (isMe) {
-        setRoomCode('');
-        setRoomUsers([]);
-        setUserId('');
+      setRoomCode('');
+      setRoomUsers([]);
+      setUserId('');
+      setRoomPlayerName('');
         setGameStarted(false);
         setCurrentRound(null);
         setRoundResult(null);
@@ -167,14 +224,27 @@ function App() {
     localStorage.removeItem('spotify_token');
   }
 
+  const handleLeaveRoom = () => {
+    if (roomCode && userId) {
+      socket?.emit('leave-room', { roomCode, userId });
+      return;
+    }
+
+    setShowRoom(false);
+  };
+
   const handleLogin = () => {
     // Redirect to /login in Backend
     window.location.href = 'http://127.0.0.1:8888/login';
   };
 
+  const isInActiveGame = showRoom && (gameStarted || werewolfStarted);
 
   return (
-    <div className="min-h-screen w-full bg-black text-white flex flex-col items-center p-4 sm:p-6">
+    !accessToken ? (
+      <LandingPage onLogin={handleLogin} />
+    ) : (
+    <div className="hs-app-shell min-h-screen w-full bg-black text-white flex flex-col items-center p-4 sm:p-6">
       {playerLeft && (
         <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
           <div className="bg-green-500 text-black px-8 py-6 rounded-2xl shadow-2xl text-center">
@@ -187,7 +257,58 @@ function App() {
         </div>
       )}
 
-      <h1 className="text-4xl font-bold mb-6 text-green-500">HarmonySync</h1>
+      {!isInActiveGame && <header className="hs-product-header">
+        <button
+          type="button"
+          className="hs-product-brand"
+          onClick={() => {
+            setShowRoom(false);
+            setActivePage('home');
+          }}
+          aria-label="Go to HarmonySync home"
+        >
+          <img src="/harmonysync-mark.png" alt="" />
+          <span>HarmonySync</span>
+        </button>
+
+        <nav className="hs-product-nav" aria-label="HarmonySync pages">
+          <button
+            type="button"
+            className={!showRoom && activePage === 'home' ? 'is-active' : ''}
+            onClick={() => {
+              setShowRoom(false);
+              setActivePage('home');
+            }}
+          >
+            Home
+          </button>
+          <button
+            type="button"
+            className={!showRoom && activePage === 'rankings' ? 'is-active' : ''}
+            onClick={() => {
+              setShowRoom(false);
+              setActivePage('rankings');
+            }}
+          >
+            Rankings
+          </button>
+          <button
+            type="button"
+            className={showRoom ? 'is-active' : ''}
+            onClick={() => {
+              setActivePage('home');
+              setShowRoom(true);
+            }}
+          >
+            Create room
+          </button>
+        </nav>
+
+        <div className="hs-product-header__user">
+          {userProfile?.display_name && <span>{userProfile.display_name}</span>}
+          <button type="button" onClick={handleLogout}>Log out</button>
+        </div>
+      </header>}
       
       {!accessToken ? (
         <div className="text-center">
@@ -200,32 +321,7 @@ function App() {
           </button>
         </div>
       ) : (
-        <div className="w-full max-w-5xl bg-slate-800 p-4 sm:p-6 rounded-2xl shadow-xl">
-          {/* User Profile */}
-          {userProfile && (
-            <div className="flex items-center justify-between border-b border-slate-700 pb-4 mb-6">
-              <div className="flex items-center space-x-4">
-                {userProfile.images?.[0]?.url && (
-                  <img
-                    src={userProfile.images[0].url}
-                    alt="Avatar"
-                    className="w-14 h-14 rounded-full border-2 border-green-400 object-cover"
-                  />
-                )}
-                <div>
-                  <h2 className="text-xl font-bold">{userProfile.display_name}</h2>
-                  <p className="text-sm text-slate-400">{userProfile.email} • {userProfile.product} plan</p>
-                </div>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white text-sm px-4 py-2 rounded-lg transition"
-              >
-                Log out
-              </button>
-            </div>
-          )}
-
+        <div className={`hs-app-content w-full max-w-5xl ${showRoom ? 'hs-app-content--room' : 'hs-app-content--dashboard'}`}>
           {/* Show Room Pages */}
           {showRoom && (
             <>
@@ -236,7 +332,7 @@ function App() {
                     nameTaken={nameTaken}
                     onNameChange={() => setNameTaken(false)}
                     onContinue={(name) => {
-                      setPlayerName(name);
+                      setRoomPlayerName(name);
                       setNameTaken(false);
 
                       socket.emit('join-room', {
@@ -245,6 +341,7 @@ function App() {
                         playerName: name,
                         topArtists,
                         topTracks,
+                        blendCandidates,
                       });
                     }}
                   />
@@ -262,6 +359,7 @@ function App() {
                     <Game round={currentRound} 
                       roundResult={roundResult}
                       roomUsers={roomUsers}
+                      isHost={(roomUsers[0]?.id || blendHostId) === userId}
                       onAnswer={(selectedUserId) => {
                         socket.emit('submit-answer', {
                           roomCode,
@@ -279,6 +377,13 @@ function App() {
                         });
                       }}
 
+                      onEndGame={() => {
+                        socket.emit('end-game', {
+                          roomCode,
+                          userId,
+                        });
+                      }}
+
                       onQuit={() => {
                         socket.emit('quit-game', {
                           roomCode,
@@ -291,7 +396,21 @@ function App() {
                       roomCode={roomCode}
                       users={roomUsers}
                       maxUsers={maxUsers}
-                      isHost={roomUsers[0]?.id === userId}
+                      isHost={(roomUsers[0]?.id || blendHostId) === userId}
+                      selectedContext={blendContext}
+                      onSelectContext={(context) => {
+                        setBlendContext(context);
+                        setContextBlend(null);
+                        setBlendError('');
+                        socket.emit('set-blend-context', {
+                          roomCode,
+                          userId,
+                          context,
+                        });
+                      }}
+                      blend={contextBlend}
+                      blendError={blendError}
+                      onLeaveRoom={handleLeaveRoom}
                       onStartGame={() => {
                         socket.emit('start-game', {
                           roomCode,
@@ -300,6 +419,14 @@ function App() {
                       onStartWerewolf={() => {
                         socket.emit('start-werewolf', {
                           roomCode,
+                          userId,
+                        });
+                      }}
+                      onChangeHost={(targetUserId) => {
+                        socket.emit('change-host', {
+                          roomCode,
+                          userId,
+                          targetUserId,
                         });
                       }}
                     />
@@ -322,18 +449,46 @@ function App() {
           
           {/* Spotify Taste */}
           {!showRoom && ( 
-            <>
+            <div className="hs-dashboard">
+              <section className="hs-dashboard-hero" aria-labelledby="home-hero-title">
+                <div className="hs-dashboard-hero__copy">
+                  <h1 id="home-hero-title">Make your taste <span>shared.</span></h1>
+                  <p>HarmonySync turns your Spotify rotation into a room for discovery, playful competition, and the songs you have in common.</p>
+                  <div className="hs-dashboard-hero__traits" aria-label="HarmonySync features">
+                    <span><i /> Blend taste</span>
+                    <span><i /> Play together</span>
+                    <span><i /> Find the overlap</span>
+                  </div>
+                </div>
+                <div className="hs-dashboard-signal" aria-hidden="true">
+                  <span className="hs-dashboard-signal__ring hs-dashboard-signal__ring--outer" />
+                  <span className="hs-dashboard-signal__ring hs-dashboard-signal__ring--inner" />
+                  <span className="hs-dashboard-signal__beam" />
+                  <div className="hs-dashboard-signal__core">
+                    <img src="/harmonysync-mark.png" alt="" />
+                  </div>
+                  <span className="hs-dashboard-signal__label hs-dashboard-signal__label--top">LIVE / SHARED</span>
+                  <span className="hs-dashboard-signal__label hs-dashboard-signal__label--bottom">YOUR SIGNAL</span>
+                </div>
+              </section>
+
               {/* Show Room Button */}
               <button
                 onClick={() => setShowRoom(true)}
-                className="w-full mb-6 bg-green-500 hover:bg-green-400 text-black font-bold py-3 px-6 rounded-xl transition"
+                className="hs-dashboard-cta"
               >
-                🎧 Create / Join Room
+                <span><i className="hs-dashboard-cta__dot" /> Create / Join Room</span>
+                <span aria-hidden="true">↗</span>
               </button>
 
+              {activePage === 'rankings' ? (
+                <Rankings artists={topArtists} tracks={topTracks} loading={loading} />
+              ) : (
+                <>
+
               {/* Top Tracks */}
-              <div>
-                <div className="flex gap-2 mb-4">
+              <section className="hs-dashboard-section">
+                <div className="hs-dashboard-ranges">
                   {[
                     { value: 'short_term', label: '4 Weeks' },
                     { value: 'medium_term', label: '6 Months' },
@@ -353,7 +508,10 @@ function App() {
                   ))}
                 </div>
 
-                <h3 className="text-lg font-semibold mb-4 text-green-300">🎵 Top 5 Recent Tracks </h3>
+                <div className="hs-dashboard-heading">
+                  <p className="hs-section-label">01 / RECENT ROTATION</p>
+                  <h3>Top recent tracks</h3>
+                </div>
 
                 {loading ? (
                   <p className="text-slate-400 text-center py-4">Waiting for Spotify...</p>
@@ -362,21 +520,22 @@ function App() {
                 ) : (
                   <p className="text-slate-400 text-center py-4">No Track Founded. Lose Your Vibe?</p>
                 )}
-              </div>
+              </section>
 
               {/* Top Artists */}
-              <div className="mt-8">
-                <h3 className="text-lg font-semibold mb-4 text-green-300"> 🎤 Top 5 Artists </h3>
+              <section className="hs-dashboard-section hs-dashboard-section--artists">
+                <div className="hs-dashboard-heading">
+                  <p className="hs-section-label">02 / ARTIST SIGNAL</p>
+                  <h3>Top artists</h3>
+                </div>
 
                 {loading ? (
                   <p className="text-slate-400 text-center py-4"> Waiting for Spotify... </p>
                 ) : topArtists.length > 0 ? (
                   <ul className="space-y-3">
                     {topArtists.map((artist, index) => (
-                      <li
-                        key={artist.id}
-                        className="flex items-center gap-3 bg-slate-700/50 p-3 rounded-xl hover:bg-slate-700 transition">
-                        <span className="text-slate-400 font-bold w-6">
+                      <li key={artist.id} className="hs-dashboard-artist">
+                        <span className="hs-dashboard-artist__rank">
                           {index + 1}
                         </span>
 
@@ -384,21 +543,21 @@ function App() {
                           <img
                             src={artist.images[0].url}
                             alt=""
-                            className="w-10 h-10 rounded-full object-cover mr-3"
+                            className="hs-dashboard-artist__image"
                           />
                         )}
 
-                        <div className="min-w-0">
+                        <div className="hs-dashboard-artist__meta">
                           <a
                             href={artist.external_urls?.spotify}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="font-semibold text-sm truncate hover:text-green-400 transition block"
+                            className="hs-dashboard-artist__name"
                           >
                             {artist.name}
                           </a>
 
-                          <p className="text-xs text-slate-400">
+                          <p className="hs-dashboard-artist__genre">
                             {artist.genres?.slice(0, 3).join(', ') || 'No genre data'}
                           </p>
                         </div>
@@ -410,12 +569,15 @@ function App() {
                     No artists found.
                   </p>
                 )}
+              </section>
+                </>
+              )}
               </div>
-            </>
-          )}
+            )}
         </div>
       )}
     </div>
+    )
   );
 }
 

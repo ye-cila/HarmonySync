@@ -112,6 +112,19 @@ export const getTopTracks = async (
   return data;
 };
 
+export const getArtistTopTracks = async (artistId, accessToken, market = 'US') => {
+  return spotifyFetch(`/artists/${artistId}/top-tracks?market=${market}`, accessToken);
+};
+
+export const getRelatedArtists = async (artistId, accessToken) => {
+  return spotifyFetch(`/artists/${artistId}/related-artists`, accessToken);
+};
+
+export const getAudioFeatures = async (trackIds, accessToken) => {
+  if (!trackIds.length) return { audio_features: [] };
+  return spotifyFetch(`/audio-features?ids=${trackIds.join(',')}`, accessToken);
+};
+
 export const getTopArtists = async (
   accessToken,
   timeRange = 'medium_term',

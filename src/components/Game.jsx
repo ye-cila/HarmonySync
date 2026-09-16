@@ -1,11 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
 
+const EndGameButton = ({ isHost, onEndGame }) => {
+  if (!isHost) {
+    return null;
+  }
+
+  return (
+    <button type="button" onClick={onEndGame} className="hs-game-end-action">
+      End Game
+    </button>
+  );
+};
+
 const Game = ({
   round,
   roundResult,
   roomUsers,
+  isHost,
   onAnswer,
   onNextRound,
+  onEndGame,
   onQuit,
 }) => {
   const [countdown, setCountdown] = useState(15);
@@ -94,10 +108,14 @@ const Game = ({
 
   if (!round) {
     return (
-      <div className="w-full max-w-2xl mx-auto bg-slate-800 p-8 rounded-2xl shadow-xl text-center">
+      <div className="hs-game-shell hs-game-state w-full max-w-2xl mx-auto bg-slate-800 p-8 rounded-2xl shadow-xl text-center">
+        <div className="hs-eyebrow"><span className="hs-live-dot" /> CONNECTING TO THE SIGNAL</div>
         <p className="text-gray-400">
           Loading first round...
         </p>
+        <div className="hs-game-state-actions">
+          <EndGameButton isHost={isHost} onEndGame={onEndGame} />
+        </div>
       </div>
     );
   }
@@ -106,21 +124,25 @@ const Game = ({
   if (roundResult) {
     return (
       <div
-        className={`w-full max-w-2xl mx-auto p-8 rounded-2xl shadow-xl text-center ${
-          roundResult.correct
-            ? 'bg-green-600'
-            : 'bg-red-600'
-        }`}
+        className={`hs-game-shell hs-game-result w-full max-w-2xl mx-auto p-8 rounded-2xl shadow-xl text-center ${roundResult.correct ? 'hs-game-result--correct' : 'hs-game-result--wrong'}`}
+        aria-live="polite"
       >
+        <div className="hs-result-signal" aria-hidden="true">
+          <svg viewBox="0 0 48 48" role="presentation">
+            <path d={roundResult.correct ? 'M13 25.5 21 33l14-17' : 'M16 16l16 16M32 16 16 32'} />
+          </svg>
+        </div>
+
+        <p className="hs-result-kicker">{roundResult.correct ? 'Signal match' : 'Signal mismatch'}</p>
         <h1 className="text-4xl font-bold text-white mb-4">
-          {roundResult.correct ? 'Correct!' : 'Wrong!'}
+          {roundResult.correct ? 'Correct' : 'Wrong'}
         </h1>
 
         <p className="text-white text-2xl font-bold mb-2">
           +{roundResult.points} points
         </p>
 
-        <p className="text-white/80 mb-8">
+        <p className="hs-result-time text-white/80 mb-8">
           {(roundResult.time / 1000).toFixed(1)}s
         </p>
 
@@ -154,6 +176,10 @@ const Game = ({
         <p className="text-white/80 mt-6">
           Next round in {countdown}...
         </p>
+
+        <div className="hs-game-state-actions">
+          <EndGameButton isHost={isHost} onEndGame={onEndGame} />
+        </div>
       </div>
     );
   }
@@ -161,7 +187,7 @@ const Game = ({
   // Quit confirmation
   if (showQuitConfirm) {
     return (
-      <div className="w-full max-w-2xl mx-auto bg-slate-800 p-8 rounded-2xl shadow-xl text-center">
+      <div className="hs-game-shell hs-game-quit w-full max-w-2xl mx-auto bg-slate-800 p-8 rounded-2xl shadow-xl text-center">
         <h2 className="text-3xl font-bold text-white mb-3">
           Quit the game?
         </h2>
@@ -190,11 +216,20 @@ const Game = ({
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto bg-slate-800 p-8 rounded-2xl shadow-xl text-center">
+    <div className="hs-game-shell w-full max-w-2xl mx-auto bg-slate-800 p-8 rounded-2xl shadow-xl text-center">
 
-      <p className="text-green-400 font-semibold mb-2">
-        Round {round.round}
-      </p>
+      <div className="hs-game-topbar">
+        <div className="hs-game-topbar__identity">
+          <span className="hs-eyebrow"><span className="hs-live-dot" /> LIVE ROUND</span>
+        </div>
+        <div className="hs-game-topbar__actions">
+          <EndGameButton isHost={isHost} onEndGame={onEndGame} />
+          <span className="hs-round-chip">ROUND {String(round.round).padStart(2, '0')}</span>
+          <span className={`hs-countdown-chip ${countdown <= 5 ? 'hs-countdown-chip--urgent' : ''}`}>00:{String(countdown).padStart(2, '0')}</span>
+        </div>
+      </div>
+
+      <p className="hs-game-kicker text-green-400 font-semibold mb-2">WHO OWNS THIS SIGNAL?</p>
 
       <h1 className="text-3xl font-bold text-white mb-4">
         Whose Taste?
@@ -224,6 +259,9 @@ const Game = ({
       />
 
       <div className="mb-8">
+        <div className="hs-audio-wave" aria-label={round.track.preview ? 'Audio preview is connected' : 'No audio preview available'}>
+          {Array.from({ length: 18 }, (_, index) => <span key={index} style={{ '--wave-delay': `${index * -0.07}s`, '--wave-height': `${28 + ((index * 17) % 68)}%` }} />)}
+        </div>
         {round.track.image && (
           <img
             src={round.track.image}
@@ -247,7 +285,7 @@ const Game = ({
         )}
       </div>
 
-      <p className="text-gray-300 mb-4">
+      <p className="hs-game-question text-gray-300 mb-4">
         Who has this song in their Top Tracks?
       </p>
 
@@ -273,12 +311,14 @@ const Game = ({
         })}
       </div>
 
-      <button
-        onClick={() => setShowQuitConfirm(true)}
-        className="mt-6 text-gray-400 hover:text-red-400 text-sm transition"
-      >
-        Quit Game
-      </button>
+      {!isHost && (
+        <button
+          onClick={() => setShowQuitConfirm(true)}
+          className="hs-quiet-action mt-6 text-gray-400 hover:text-red-400 text-sm transition"
+        >
+          Quit Game
+        </button>
+      )}
     </div>
   );
 };
