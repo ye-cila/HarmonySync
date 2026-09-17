@@ -1,3 +1,6 @@
+const BACKEND_URL =
+  import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8888';
+
 const SPOTIFY_API_URL = 'https://api.spotify.com/v1';
 
 const sleep = (ms) =>
@@ -51,7 +54,7 @@ const spotifyFetch = async (
 
     if (refreshToken && retries > 0) {
       const refreshResponse = await fetch(
-        'http://127.0.0.1:8888/refresh',
+        `${BACKEND_URL}/refresh`,
         {
           method: 'POST',
           headers: {
@@ -172,7 +175,7 @@ export const searchSpotify = async (
 
 export const refreshAccessToken = async (refreshToken) => {
   const response = await fetch(
-    'http://127.0.0.1:8888/refresh',
+    `${BACKEND_URL}/refresh`,
     {
       method: 'POST',
       headers: {

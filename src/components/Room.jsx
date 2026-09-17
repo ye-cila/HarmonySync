@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
-const BACKEND_URL = 'http://127.0.0.1:8888';
+const BACKEND_URL =
+  import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8888';
 
 const ArrowIcon = () => (
   <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 13 13 3M6 3h7v7" /></svg>

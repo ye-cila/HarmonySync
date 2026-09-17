@@ -10,6 +10,9 @@ import WerewolfGame from './components/WerewolfGame';
 import LandingPage from './components/LandingPage';
 import Rankings from './components/Rankings';
 
+const BACKEND_URL =
+  import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8888';
+
 function App() {
   const [accessToken, setAccessToken] = useState('');
   const [timeRange, setTimeRange] = useState('medium_term');
@@ -51,7 +54,7 @@ function App() {
   );
 
   useEffect(() => {
-    const newSocket = io('http://127.0.0.1:8888');
+    const newSocket = io(BACKEND_URL);
 
     // room-users listener
     newSocket.on('room-users', (users) => {
@@ -185,7 +188,7 @@ function App() {
 
     const syncUser = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:8888/users/sync', {
+        const response = await fetch(`${BACKEND_URL}/users/sync`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -272,7 +275,7 @@ function App() {
 
   const handleLogin = () => {
     // Redirect to /login in Backend
-    window.location.href = 'http://127.0.0.1:8888/login';
+    window.location.href = `${BACKEND_URL}/login`;
   };
 
   const isInActiveGame = showRoom && (gameStarted || werewolfStarted);

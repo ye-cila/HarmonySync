@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 
+const BACKEND_URL =
+  import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8888';
+
 const RankGlyph = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
     <path d="M5 19V9m7 10V5m7 14v-7" />
@@ -19,7 +22,7 @@ const Rankings = () => {
 
       try {
         const response = await fetch(
-          'http://127.0.0.1:8888/leaderboard?gameType=spotify_guess'
+          `${BACKEND_URL}/leaderboard?gameType=spotify_guess`
         );
 
         if (!response.ok) {
