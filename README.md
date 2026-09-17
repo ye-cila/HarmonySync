@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://harmony-sync-orpin.vercel.app">
-    <strong>🌐 Live Demo</strong>
+    <strong> Live Demo </strong>
   </a>
   &nbsp; · &nbsp;
   <a href="https://github.com/ye-cila/HarmonySync-backend">
@@ -30,7 +30,7 @@
 
 ---
 
-## ✨ What is HarmonySync?
+## What is HarmonySync?
 
 HarmonySync transforms Spotify listening data into a social multiplayer experience.
 
@@ -39,28 +39,9 @@ Instead of simply showing users their favorite artists and tracks, HarmonySync l
 The application combines:
 
 **Spotify OAuth → Spotify listening data → Multiplayer rooms → Real-time games → Persistent scores → Leaderboard**
-
-### 🎯 Core Experience
-
-```text
-Connect Spotify
-      ↓
-Create / Join a Room
-      ↓
-Meet your friends
-      ↓
-Choose a music game
-      ↓
-Play together in real time
-      ↓
-Earn points
-      ↓
-Climb the leaderboard
-````
-
 ---
 
-## 🎮 Features
+## Features
 
 | Feature                     | Description                                                                        |
 | --------------------------- | ---------------------------------------------------------------------------------- |
@@ -75,7 +56,7 @@ Climb the leaderboard
 
 ---
 
-## 📸 Screenshots
+## Screenshots
 
 ### Home
 
@@ -149,47 +130,9 @@ This data structure is used as part of the music compatibility logic.
 
 ---
 
-### 3. Ranking-Based Compatibility
-
-Artist rankings are converted into weighted scores:
-
-```text
-weight = N - rank + 1
-```
-
-For example, with five ranked artists:
-
-```text
-Rank 1 → 5 points
-Rank 2 → 4 points
-Rank 3 → 3 points
-Rank 4 → 2 points
-Rank 5 → 1 point
-```
-
-Shared artists can then be compared based on how highly each player ranks them.
-
-This provides a foundation for calculating music compatibility between players.
-
----
-
-### 4. Persistent Game Scores
+### 3. Persistent Game Scores
 
 Game results are stored in PostgreSQL through Supabase.
-
-The current database relationship is:
-
-```text
-users
-  │
-  │ user_id
-  ▼
-game_scores
-  │
-  ▼
-Leaderboard
-```
-
 The leaderboard calculates each player's highest score for a game type.
 
 ---
@@ -398,10 +341,31 @@ remain on the backend and are never included in the frontend environment.
 
 ---
 
-## 💡 Why I Built This
+## Why I Built This
 
-I wanted to build a project that combined several areas of software engineering instead of focusing on a single CRUD application.
+Music has always been one of the strongest ways I connect with my friends.
 
+Some of my favorite moments are surprisingly simple: sitting together, listening to a song that we both know, and instinctively singing along to the same part. There is something about knowing the same song, reacting to the same moment, and experiencing it together that makes people feel connected.
+
+Then distance changed that.
+
+When my friends and I are no longer in the same place, listening to music together suddenly requires a video call, screen sharing, or some other workaround. The music itself has not changed, but the experience of sharing it has.
+
+That made me wonder:
+
+> **What if being apart didn't have to make listening to music feel so separate?**
+
+HarmonySync started from that idea.
+
+I wanted to create a space where friends could bring their music tastes together, discover what they have in common, see where they differ, and turn listening into something they can experience together—even when they are physically apart.
+
+What started as an idea about sharing music eventually grew into a multiplayer experience with rooms, real-time communication, music compatibility, and games built around the music people love.
+
+At its core, HarmonySync is about something much simpler:
+
+**Using music to make distance feel a little smaller.**
+
+Besides that, I also wanted to build a project that combined several areas of software engineering.
 HarmonySync gave me the opportunity to work with:
 
 * Third-party API integration
@@ -418,7 +382,7 @@ The project also gave me a practical environment to understand how a frontend, b
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are what make the open-source community an amazing place to learn, inspire, and create. Any contributions you make are greatly appreciated.
 
@@ -431,8 +395,7 @@ Contributions are what make the open-source community an amazing place to learn,
 
 ---
 
-## 👩🏻‍💻 Author
-
+## Contact
 **Alice Nguyen** - [LinkedIn](https://www.linkedin.com/in/alice-nguyen-b62ba2385/) - alicephgthao@gmail.com
 
 **Project Link:** [HarmonySync](https://github.com/ye-cila/HarmonySync)
