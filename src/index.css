@@ -651,7 +651,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .hs-ranking-heading h2, .hs-ranking-side h2 { margin: .55rem 0 0; color: #f5fbfa; font-size: 1.2rem; font-weight: 600; letter-spacing: -.03em; }
 .hs-ranking-heading > span { color: rgba(219,237,234,.36); font-size: .62rem; text-transform: uppercase; letter-spacing: .1em; }
 .hs-ranking-rows, .hs-track-mini-list { margin: 0; padding: 0; list-style: none; }
-.hs-ranking-row { display: grid; grid-template-columns: 2rem 2.7rem minmax(0, 1fr) minmax(5rem, .42fr); align-items: center; gap: .8rem; min-height: 4.15rem; border-top: 1px solid rgba(157,253,231,.1); transition: transform 220ms ease, background 220ms ease; }
+.hs-ranking-row { display: grid; grid-template-columns: 2rem 2.7rem minmax(10rem, 1fr) minmax(6rem, .35fr) auto; align-items: center; gap: .8rem; min-height: 4.15rem; border-top: 1px solid rgba(157, 253, 231, .1); transition: transform 220ms ease, background 220ms ease; }
 .hs-ranking-row:hover { background: rgba(157,253,231,.035); transform: translateX(4px); }
 .hs-ranking-row img, .hs-ranking-avatar { display: grid; width: 2.35rem; height: 2.35rem; place-items: center; border-radius: .7rem; color: #9dfde7; background: rgba(157,253,231,.08); object-fit: cover; font-size: .8rem; font-weight: 700; }
 .hs-ranking-position { color: rgba(219,237,234,.32); font-size: .65rem; font-variant-numeric: tabular-nums; }
@@ -666,6 +666,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .hs-track-mini-list li > span { color: #9dfde7; font-size: .61rem; font-variant-numeric: tabular-nums; }
 .hs-track-mini-list strong { display: block; overflow: hidden; color: #ecfffa; font-size: .74rem; text-overflow: ellipsis; white-space: nowrap; }
 .hs-ranking-empty { padding: 1rem 0; color: rgba(219,237,234,.42); font-size: .78rem; }
+.hs-ranking-score { min-width: 4rem; color: #9dfde7; font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 
 /* Werewolf command center: one open stage with a telemetry rail instead of a stack of generic cards. */
 .hs-werewolf-shell { min-height: calc(100svh - 5.5rem); padding: clamp(1rem, 3vw, 2.5rem) clamp(0rem, 3vw, 2.6rem) 3rem; }
@@ -831,4 +832,20 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .hs-werewolf-result-artwork-grid { grid-template-columns: 1fr; }
   .hs-werewolf-result-actions { align-items: stretch; flex-direction: column; }
   .hs-werewolf-action { justify-content: center; }
+}
+
+@media (max-width: 640px) {
+  .hs-ranking-row {
+    grid-template-columns: 1.5rem 2.35rem minmax(0, 1fr) auto;
+    gap: .65rem;
+  }
+
+  .hs-ranking-strength {
+    display: none;
+  }
+
+  .hs-ranking-score {
+    min-width: 3.5rem;
+    font-size: .9rem;
+  }
 }

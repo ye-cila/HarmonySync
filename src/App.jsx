@@ -17,6 +17,7 @@ function App() {
   const [roomUsers, setRoomUsers] = useState([]);
   const [socket, setSocket] = useState(null);
   const [userId, setUserId] = useState('');
+  const [databaseUserId, setDatabaseUserId] = useState('');
   const [showRoom, setShowRoom] = useState(false);
   const [activePage, setActivePage] = useState('home');
   const [gameStarted, setGameStarted] = useState(false);
@@ -176,6 +177,42 @@ function App() {
       if (savedToken) setAccessToken(savedToken);
     }
   }, []);
+
+  useEffect(() => {
+    if (!accessToken || !userProfile?.id) {
+      return;
+    }
+
+    const syncUser = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:8888/users/sync', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            spotifyId: userProfile.id,
+            displayName: userProfile.display_name,
+            avatarUrl: userProfile.images?.[0]?.url || null,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to sync user');
+        }
+
+        const data = await response.json();
+
+        console.log('Database user:', data);
+
+        setDatabaseUserId(data.userId);
+      } catch (error) {
+        console.error('User sync error:', error);
+      }
+    };
+
+    syncUser();
+  }, [accessToken, userProfile]);
 
   useEffect(() => {
     if (!socket || !roomCode || !userId || !roomPlayerName || showPlayerSetup) {
@@ -338,6 +375,7 @@ function App() {
                       socket.emit('join-room', {
                         roomCode,
                         userId,
+                        databaseUserId,
                         playerName: name,
                         topArtists,
                         topTracks,
@@ -448,132 +486,166 @@ function App() {
           )}
           
           {/* Spotify Taste */}
-          {!showRoom && ( 
+          {!showRoom && (
             <div className="hs-dashboard">
-              <section className="hs-dashboard-hero" aria-labelledby="home-hero-title">
-                <div className="hs-dashboard-hero__copy">
-                  <h1 id="home-hero-title">Make your taste <span>shared.</span></h1>
-                  <p>HarmonySync turns your Spotify rotation into a room for discovery, playful competition, and the songs you have in common.</p>
-                  <div className="hs-dashboard-hero__traits" aria-label="HarmonySync features">
-                    <span><i /> Blend taste</span>
-                    <span><i /> Play together</span>
-                    <span><i /> Find the overlap</span>
-                  </div>
-                </div>
-                <div className="hs-dashboard-signal" aria-hidden="true">
-                  <span className="hs-dashboard-signal__ring hs-dashboard-signal__ring--outer" />
-                  <span className="hs-dashboard-signal__ring hs-dashboard-signal__ring--inner" />
-                  <span className="hs-dashboard-signal__beam" />
-                  <div className="hs-dashboard-signal__core">
-                    <img src="/harmonysync-mark.png" alt="" />
-                  </div>
-                  <span className="hs-dashboard-signal__label hs-dashboard-signal__label--top">LIVE / SHARED</span>
-                  <span className="hs-dashboard-signal__label hs-dashboard-signal__label--bottom">YOUR SIGNAL</span>
-                </div>
-              </section>
-
-              {/* Show Room Button */}
-              <button
-                onClick={() => setShowRoom(true)}
-                className="hs-dashboard-cta"
-              >
-                <span><i className="hs-dashboard-cta__dot" /> Create / Join Room</span>
-                <span aria-hidden="true">↗</span>
-              </button>
-
               {activePage === 'rankings' ? (
-                <Rankings artists={topArtists} tracks={topTracks} loading={loading} />
+                <Rankings />
               ) : (
                 <>
+                  {/* Home Hero */}
+                  <section
+                    className="hs-dashboard-hero"
+                    aria-labelledby="home-hero-title"
+                  >
+                    <div className="hs-dashboard-hero__copy">
+                      <h1 id="home-hero-title">
+                        Make your taste <span>shared.</span>
+                      </h1>
 
-              {/* Top Tracks */}
-              <section className="hs-dashboard-section">
-                <div className="hs-dashboard-ranges">
-                  {[
-                    { value: 'short_term', label: '4 Weeks' },
-                    { value: 'medium_term', label: '6 Months' },
-                    { value: 'long_term', label: '1 Year' },
-                  ].map((range) => (
-                    <button
-                      key={range.value}
-                      onClick={() => setTimeRange(range.value)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-                        timeRange === range.value
-                          ? 'bg-green-500 text-black'
-                          : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                      }`}
-                    >
-                      {range.label}
-                    </button>
-                  ))}
-                </div>
+                      <p>
+                        HarmonySync turns your Spotify rotation into a room for
+                        discovery, playful competition, and the songs you have in
+                        common.
+                      </p>
 
-                <div className="hs-dashboard-heading">
-                  <p className="hs-section-label">01 / RECENT ROTATION</p>
-                  <h3>Top recent tracks</h3>
-                </div>
+                      <div
+                        className="hs-dashboard-hero__traits"
+                        aria-label="HarmonySync features"
+                      >
+                        <span><i /> Blend taste</span>
+                        <span><i /> Play together</span>
+                        <span><i /> Find the overlap</span>
+                      </div>
+                    </div>
 
-                {loading ? (
-                  <p className="text-slate-400 text-center py-4">Waiting for Spotify...</p>
-                ) : topTracks.length > 0 ? (
-                  <SpotifyPreviewPlayer tracks={topTracks.slice(0, 5)} />
-                ) : (
-                  <p className="text-slate-400 text-center py-4">No Track Founded. Lose Your Vibe?</p>
-                )}
-              </section>
+                    <div className="hs-dashboard-signal" aria-hidden="true">
+                      <span className="hs-dashboard-signal__ring hs-dashboard-signal__ring--outer" />
+                      <span className="hs-dashboard-signal__ring hs-dashboard-signal__ring--inner" />
+                      <span className="hs-dashboard-signal__beam" />
 
-              {/* Top Artists */}
-              <section className="hs-dashboard-section hs-dashboard-section--artists">
-                <div className="hs-dashboard-heading">
-                  <p className="hs-section-label">02 / ARTIST SIGNAL</p>
-                  <h3>Top artists</h3>
-                </div>
+                      <div className="hs-dashboard-signal__core">
+                        <img src="/harmonysync-mark.png" alt="" />
+                      </div>
 
-                {loading ? (
-                  <p className="text-slate-400 text-center py-4"> Waiting for Spotify... </p>
-                ) : topArtists.length > 0 ? (
-                  <ul className="space-y-3">
-                    {topArtists.map((artist, index) => (
-                      <li key={artist.id} className="hs-dashboard-artist">
-                        <span className="hs-dashboard-artist__rank">
-                          {index + 1}
-                        </span>
+                      <span className="hs-dashboard-signal__label hs-dashboard-signal__label--top">
+                        LIVE / SHARED
+                      </span>
 
-                        {artist.images?.[0]?.url && (
-                          <img
-                            src={artist.images[0].url}
-                            alt=""
-                            className="hs-dashboard-artist__image"
-                          />
-                        )}
+                      <span className="hs-dashboard-signal__label hs-dashboard-signal__label--bottom">
+                        YOUR SIGNAL
+                      </span>
+                    </div>
+                  </section>
 
-                        <div className="hs-dashboard-artist__meta">
-                          <a
-                            href={artist.external_urls?.spotify}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hs-dashboard-artist__name"
+                  {/* Create / Join Room */}
+                  <button
+                    onClick={() => setShowRoom(true)}
+                    className="hs-dashboard-cta"
+                  >
+                    <span>
+                      <i className="hs-dashboard-cta__dot" /> Create / Join Room
+                    </span>
+
+                    <span aria-hidden="true">↗</span>
+                  </button>
+
+                  {/* Top Tracks */}
+                  <section className="hs-dashboard-section">
+                    <div className="hs-dashboard-ranges">
+                      {[
+                        { value: 'short_term', label: '4 Weeks' },
+                        { value: 'medium_term', label: '6 Months' },
+                        { value: 'long_term', label: '1 Year' },
+                      ].map((range) => (
+                        <button
+                          key={range.value}
+                          onClick={() => setTimeRange(range.value)}
+                          className={`px-4 py-2 rounded-full text-sm font-medium transition ${
+                            timeRange === range.value
+                              ? 'bg-green-500 text-black'
+                              : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                          }`}
+                        >
+                          {range.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="hs-dashboard-heading">
+                      <p className="hs-section-label">
+                        01 / RECENT ROTATION
+                      </p>
+                      <h3>Top recent tracks</h3>
+                    </div>
+
+                    {loading ? (
+                      <p className="text-slate-400 text-center py-4">
+                        Waiting for Spotify...
+                      </p>
+                    ) : topTracks.length > 0 ? (
+                      <SpotifyPreviewPlayer tracks={topTracks.slice(0, 5)} />
+                    ) : (
+                      <p className="text-slate-400 text-center py-4">
+                        No Track Founded. Lose Your Vibe?
+                      </p>
+                    )}
+                  </section>
+
+                  {/* Top Artists */}
+                  <section className="hs-dashboard-section hs-dashboard-section--artists">
+                    <div className="hs-dashboard-heading">
+                      <p className="hs-section-label">
+                        02 / ARTIST SIGNAL
+                      </p>
+                      <h3>Top artists</h3>
+                    </div>
+
+                    {loading ? (
+                      <p className="text-slate-400 text-center py-4">
+                        Waiting for Spotify...
+                      </p>
+                    ) : topArtists.length > 0 ? (
+                      <ul className="space-y-3">
+                        {topArtists.map((artist, index) => (
+                          <li
+                            key={artist.id}
+                            className="hs-dashboard-artist"
                           >
-                            {artist.name}
-                          </a>
+                            <span className="hs-dashboard-artist__rank">
+                              {index + 1}
+                            </span>
 
-                          <p className="hs-dashboard-artist__genre">
-                            {artist.genres?.slice(0, 3).join(', ') || 'No genre data'}
-                          </p>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-slate-400 text-center py-4">
-                    No artists found.
-                  </p>
-                )}
-              </section>
+                            {artist.images?.[0]?.url && (
+                              <img
+                                src={artist.images[0].url}
+                                alt=""
+                                className="hs-dashboard-artist__image"
+                              />
+                            )}
+
+                            <div className="hs-dashboard-artist__meta">
+                              <a
+                                href={artist.external_urls?.spotify}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hs-dashboard-artist__name"
+                              >
+                                {artist.name}
+                              </a>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-slate-400 text-center py-4">
+                        No artists found.
+                      </p>
+                    )}
+                  </section>
                 </>
               )}
-              </div>
-            )}
+            </div>
+          )}
         </div>
       )}
     </div>

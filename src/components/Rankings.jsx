@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 const RankGlyph = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
     <path d="M5 19V9m7 10V5m7 14v-7" />
@@ -5,83 +7,154 @@ const RankGlyph = () => (
   </svg>
 );
 
-const Rankings = ({ artists, tracks, loading }) => (
-  <section className="hs-rankings" aria-labelledby="rankings-title">
-    <div className="hs-rankings-hero">
-      <div>
-        <p className="hs-section-label">HARMONYSYNC / TASTE SIGNAL</p>
-        <h1 id="rankings-title">Your listening<br /><span>in orbit.</span></h1>
-        <p className="hs-rankings-intro">
-          A living snapshot of the artists and songs shaping your signal right now.
-        </p>
-      </div>
-      <div className="hs-rankings-orbit" aria-hidden="true">
-        <span className="hs-rankings-orbit__ring hs-rankings-orbit__ring--outer" />
-        <span className="hs-rankings-orbit__ring hs-rankings-orbit__ring--inner" />
-        <span className="hs-rankings-orbit__core"><RankGlyph /></span>
-      </div>
-    </div>
+const Rankings = () => {
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-    <div className="hs-rankings-grid">
-      <section className="hs-rankings-list" aria-labelledby="artists-title">
-        <div className="hs-ranking-heading">
-          <div>
-            <p className="hs-section-label">01 / TOP ARTISTS</p>
-            <h2 id="artists-title">The names in your mix</h2>
-          </div>
-          <span>{artists.length} ranked</span>
+  useEffect(() => {
+    const fetchLeaderboard = async () => {
+      setLoading(true);
+      setError('');
+
+      try {
+        const response = await fetch(
+          'http://127.0.0.1:8888/leaderboard?gameType=spotify_guess'
+        );
+
+        if (!response.ok) {
+          throw new Error('Could not load leaderboard');
+        }
+
+        const data = await response.json();
+        setLeaderboard(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('Leaderboard error:', error);
+        setError(error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLeaderboard();
+  }, []);
+
+  return (
+    <section className="hs-rankings" aria-labelledby="rankings-title">
+      <div className="hs-rankings-hero">
+        <div>
+          <p className="hs-section-label">HARMONYSYNC / GAME SIGNAL</p>
+
+          <h1 id="rankings-title">
+            The players
+            <br />
+            <span>in orbit.</span>
+          </h1>
+
+          <p className="hs-rankings-intro">
+            A living leaderboard of the players shaping HarmonySync through
+            Spotify Guess.
+          </p>
         </div>
 
-        {loading ? (
-          <p className="hs-ranking-empty">Reading your Spotify signal…</p>
-        ) : artists.length > 0 ? (
-          <ol className="hs-ranking-rows">
-            {artists.map((artist, index) => {
-              const strength = Math.max(18, 100 - index * 8);
-              return (
-                <li key={artist.id || artist.name} className="hs-ranking-row">
-                  <span className="hs-ranking-position">{String(index + 1).padStart(2, '0')}</span>
-                  {artist.images?.[0]?.url ? (
-                    <img src={artist.images[0].url} alt="" />
-                  ) : (
-                    <span className="hs-ranking-avatar" aria-hidden="true">{artist.name?.slice(0, 1)}</span>
-                  )}
-                  <span className="hs-ranking-name">
-                    <a href={artist.external_urls?.spotify} target="_blank" rel="noopener noreferrer">
-                      {artist.name}
-                    </a>
-                    <small>{artist.genres?.slice(0, 2).join(' · ') || 'Genre signal forming'}</small>
-                  </span>
-                  <span className="hs-ranking-strength" style={{ '--strength': `${strength}%` }}>
-                    <i />
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-        ) : (
-          <p className="hs-ranking-empty">No artist signal yet. Play a few songs and check back.</p>
-        )}
-      </section>
+        <div className="hs-rankings-orbit" aria-hidden="true">
+          <span className="hs-rankings-orbit__ring hs-rankings-orbit__ring--outer" />
+          <span className="hs-rankings-orbit__ring hs-rankings-orbit__ring--inner" />
 
-      <aside className="hs-ranking-side" aria-labelledby="tracks-title">
-        <p className="hs-section-label">02 / RECENT ROTATION</p>
-        <h2 id="tracks-title">Songs carrying the room</h2>
-        <p className="hs-ranking-side__copy">These tracks are the quickest read on your current mood.</p>
-        <ol className="hs-track-mini-list">
-          {tracks.slice(0, 5).map((track, index) => (
-            <li key={track.id || `${track.name}-${index}`}>
-              <span>{String(index + 1).padStart(2, '0')}</span>
-              <div>
-                <strong>{track.name}</strong>
-                <small>{track.artists?.map((artist) => artist.name).join(', ')}</small>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </aside>
-    </div>
-  </section>
-);
+          <span className="hs-rankings-orbit__core">
+            <RankGlyph />
+          </span>
+        </div>
+      </div>
+
+      <div className="hs-rankings-grid">
+        <section
+          className="hs-rankings-list"
+          aria-labelledby="leaderboard-title"
+        >
+          <div className="hs-ranking-heading">
+            <div>
+              <p className="hs-section-label">01 / LEADERBOARD</p>
+
+              <h2 id="leaderboard-title">
+                The players leading the board
+              </h2>
+            </div>
+
+            <span>{leaderboard.length} players</span>
+          </div>
+
+          {loading ? (
+            <p className="hs-ranking-empty">
+              Loading the leaderboard…
+            </p>
+          ) : error ? (
+            <p className="hs-ranking-empty">
+              {error}
+            </p>
+          ) : leaderboard.length > 0 ? (
+            <ol className="hs-ranking-rows">
+              {leaderboard.map((player, index) => {
+                const strength = Math.max(18, 100 - index * 8);
+
+                return (
+                  <li
+                    key={player.userId}
+                    className="hs-ranking-row"
+                  >
+                    <span className="hs-ranking-position">
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
+
+                    {player.avatarUrl ? (
+                      <img
+                        src={player.avatarUrl}
+                        alt=""
+                      />
+                    ) : (
+                      <span
+                        className="hs-ranking-avatar"
+                        aria-hidden="true"
+                      >
+                        {player.displayName?.slice(0, 1) || '?'}
+                      </span>
+                    )}
+
+                    <span className="hs-ranking-name">
+                      <strong>
+                        {player.displayName || 'HarmonySync player'}
+                      </strong>
+
+                      <small>
+                        Spotify Guess
+                      </small>
+                    </span>
+
+                    <span
+                      className="hs-ranking-strength"
+                      style={{
+                        '--strength': `${strength}%`,
+                      }}
+                    >
+                      <i />
+                    </span>
+
+                    <span className="hs-ranking-score">
+                      {player.highScore}
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+          ) : (
+            <p className="hs-ranking-empty">
+              No scores yet. Play a game and claim your place.
+            </p>
+          )}
+        </section>
+      </div>
+    </section>
+  );
+};
 
 export default Rankings;
